@@ -8,22 +8,29 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.blackdiamond.musicplayer.R
+import com.blackdiamond.musicplayer.adapters.SongsAdapter
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 
 
 class MainActivity : AppCompatActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        getAudioFolders()
+        val songsAdapter = SongsAdapter(getAudio().second)
+        val rvMain = findViewById<RecyclerView>(R.id.rvMain)
+        rvMain.adapter = songsAdapter
+        rvMain.layoutManager = LinearLayoutManager(this)
     }
 
-    private fun getAudioFolders(): ArrayList<AudioFolder> {
-        var audioFolders: ArrayList<AudioFolder> = ArrayList()
-        var audioFiles: ArrayList<Audio> = ArrayList()
+    private fun getAudio(): Pair<ArrayList<AudioFolder>,ArrayList<Audio>> {
+        val audioFolders: ArrayList<AudioFolder> = ArrayList()
+        val audioFiles: ArrayList<Audio> = ArrayList()
 
         val projection = arrayOf(
             MediaStore.Audio.Media.TITLE,
@@ -32,13 +39,14 @@ class MainActivity : AppCompatActivity() {
             MediaStore.Audio.Media.ALBUM_ID
         )
 
+        val sort = "${MediaStore.Audio.Media.TITLE} ASC"
 
         applicationContext.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
             null,
             null,
-            null
+            sort
         )?.use { cursor ->
             while (cursor.moveToNext()) {
                 val name =
@@ -68,7 +76,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        return audioFolders
+        return Pair(audioFolders,audioFiles)
     }
 
 
