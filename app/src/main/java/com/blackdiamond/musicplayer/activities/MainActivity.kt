@@ -10,10 +10,14 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.blackdiamond.musicplayer.R
 import com.blackdiamond.musicplayer.adapters.SongsAdapter
+import com.blackdiamond.musicplayer.adapters.ViewPagerAdapter
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 
 
 class MainActivity : AppCompatActivity() {
@@ -22,10 +26,17 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val songsAdapter = SongsAdapter(getAudio().second)
-        val rvMain = findViewById<RecyclerView>(R.id.rvMain)
-        rvMain.adapter = songsAdapter
-        rvMain.layoutManager = LinearLayoutManager(this)
+        val vpAdapter = ViewPagerAdapter(getAudio().first,getAudio().second,null)
+        val viewPager = findViewById<ViewPager2>(R.id.viewPager)
+        viewPager.adapter = vpAdapter
+
+        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
+
+        val tabs = arrayOf("Songs","Folders","Playlists")
+
+        TabLayoutMediator(tabLayout,viewPager){ tab, position ->
+            tab.text = tabs[position]
+        }.attach()
     }
 
     private fun getAudio(): Pair<ArrayList<AudioFolder>,ArrayList<Audio>> {
