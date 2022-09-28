@@ -1,59 +1,143 @@
 package com.blackdiamond.musicplayer.activities
 
-import android.content.ContentUris
+import android.content.*
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
+import androidx.viewpager2.widget.ViewPager2
 import com.blackdiamond.musicplayer.R
+import com.blackdiamond.musicplayer.adapters.ViewPagerAdapter
 import com.blackdiamond.musicplayer.database.AudioViewModel
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
+import com.blackdiamond.musicplayer.services.MusicPlayerService
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
+import java.io.InputStream
 
 
 class MainActivity : AppCompatActivity() {
 
-    var paused = false
-    lateinit var audioViewModel: AudioViewModel
+    private lateinit var audioViewModel: AudioViewModel
+    private lateinit var musicPlayerServiceIntent: Intent
+
+    private lateinit var bottomControllerArt: ImageView
+    private lateinit var bottomControllerTitle: TextView
+    private lateinit var bottomControllerPlay: ImageView
+    private lateinit var bottomControllerSkip: ImageView
+    private lateinit var bottomControllerPrev: ImageView
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         audioViewModel = ViewModelProvider(this)[AudioViewModel::class.java]
-        getAudio()
-//        val (folders, songs) = getAudio()
-//
-//        val vpAdapter = ViewPagerAdapter(folders, songs, null)
-//        val viewPager = findViewById<ViewPager2>(R.id.viewPager)
-//        viewPager.adapter = vpAdapter
-//
-//        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
-//
-//        val tabs = arrayOf("Songs", "Folders", "Playlists")
-//
-//        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-//            tab.text = tabs[position]
-//        }.attach()
-//
-//        val play = findViewById<ImageView>(R.id.playAudio)
-//
-//        play.setOnClickListener {
-//            Intent(this, MusicPlayerService::class.java).also {
-//                it.putExtra("order", "pause")
-//                startService(it)
-//            }
-//        }
+        musicPlayerServiceIntent = Intent(applicationContext,MusicPlayerService::class.java)
+
+        registerReceiver(songAddedToMusicPlayer, IntentFilter("songAdded"))
+        registerReceiver(playerStateChanged, IntentFilter("playerStateChanged"))
+        registerReceiver(getLastAudio, IntentFilter("lastAudio"))
+
+        val viewPager = findViewById<ViewPager2>(R.id.viewPager)
+        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
+
+        bottomControllerArt = findViewById(R.id.currentAudioArt)
+        bottomControllerTitle = findViewById(R.id.currentAudioTitle)
+        bottomControllerPlay = findViewById(R.id.playAudio)
+        bottomControllerSkip = findViewById(R.id.skipAudio)
+        bottomControllerPrev = findViewById(R.id.prevAudio)
+
+
+        val tabs = arrayOf("Songs", "Folders", "Playlists")
+
+        getAudio().observe(this) {
+            audioViewModel.getAllSongs().observe(this) { songs ->
+                audioViewModel.getAllFolders().observe(this) { folders ->
+                    audioViewModel.getAllPlaylists().observe(this) { playlists ->
+                        val vpAdapter = ViewPagerAdapter(folders, songs, playlists)
+                        viewPager.adapter = vpAdapter
+                        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+                            tab.text = tabs[position]
+                        }.attach()
+                        musicPlayerServiceIntent.putExtra("order","lastSong")
+                        startService(musicPlayerServiceIntent)
+                    }
+                }
+            }
+        }
+
+        bottomControllerPlay.setOnClickListener {
+            musicPlayerServiceIntent.putExtra("order","pause")
+            startService(musicPlayerServiceIntent)
+        }
+
     }
 
-    private fun getAudio(){
+    private val songAddedToMusicPlayer : BroadcastReceiver = object : BroadcastReceiver(){
+        override fun onReceive(p0: Context?, intent: Intent?) {
+            val audio = intent?.getParcelableExtra<Audio>("addedAudio")
+            if (audio != null){
+                try {
+                    val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
+                    bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
+                }catch (e: Exception){
+                    bottomControllerArt.setImageResource(R.drawable.ic_music)
+                }
+                bottomControllerPlay.setImageResource(R.drawable.ic_pause)
+                bottomControllerTitle.text = audio.name
+            }
+        }
+    }
+
+    private val playerStateChanged : BroadcastReceiver = object : BroadcastReceiver(){
+        override fun onReceive(p0: Context?, intent: Intent?) {
+            val state = intent?.getStringExtra("state")
+            if (state != null){
+                if (state == "paused"){
+                    bottomControllerPlay.setImageResource(R.drawable.ic_play)
+                }else{
+                    bottomControllerPlay.setImageResource(R.drawable.ic_pause)
+                }
+            }
+        }
+    }
+
+    private val getLastAudio : BroadcastReceiver = object : BroadcastReceiver(){
+        override fun onReceive(p0: Context?, intent: Intent?) {
+            val audio = intent?.getParcelableExtra<Audio>("lastAudio")
+            if (audio != null){
+                try {
+                    val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
+                    bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
+                }catch (e: Exception){
+                    bottomControllerArt.setImageResource(R.drawable.ic_music)
+                }
+                bottomControllerTitle.text = audio.name
+            }
+        }
+    }
+
+    private fun getAudio(): LiveData<Boolean> {
+        var result = MutableLiveData<Boolean>()
         audioViewModel.getAllSongs().observe(this) { songs ->
             if (songs.isEmpty()) {
                 loadSongsForTheFirstTime()
                 createSongFolders()
+                result.postValue(true)
             }
+            result.postValue(true)
         }
+        return result
     }
 
     private fun createSongFolders() {
@@ -69,8 +153,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             for (key in songFolders.keys) {
-                if (songFolders[key] != null){
-                    val folder = AudioFolder(key,songFolders[key]!!)
+                if (songFolders[key] != null) {
+                    val folder = AudioFolder(key, songFolders[key]!!)
                     audioViewModel.addFolder(folder)
                 }
             }
@@ -106,14 +190,7 @@ class MainActivity : AppCompatActivity() {
                     cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID))
 
                 val artworkUri = Uri.parse("content://media/external/audio/albumart")
-                val uri = ContentUris.withAppendedId(artworkUri, albumID)
-                var art: Uri? = null
-
-                try {
-                    contentResolver.openInputStream(uri)
-                    art = uri
-                } catch (e: Exception) {
-                }//this file has no art !
+                var art = ContentUris.withAppendedId(artworkUri, albumID)
 
                 val ext = data.split(".").last()
                 if (arrayOf("mp3", "m4a", "wav").contains(ext)) {

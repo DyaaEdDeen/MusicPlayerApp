@@ -1,15 +1,22 @@
 package com.blackdiamond.musicplayer.adapters
 
+import android.graphics.Color
+import android.media.Image
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.blackdiamond.musicplayer.R
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 
-class FolderAdapter(private val folders: ArrayList<AudioFolder>) :
+class FolderAdapter(private val folders: MutableList<AudioFolder>) :
     RecyclerView.Adapter<FolderAdapter.FoldersViewHolder>() {
+
+    init {
+        folders.add(AudioFolder("", mutableListOf()))
+    }
 
     class FoldersViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
 
@@ -28,11 +35,16 @@ class FolderAdapter(private val folders: ArrayList<AudioFolder>) :
 
         val name = holder.itemView.findViewById<TextView>(R.id.folderName)
         val songs = holder.itemView.findViewById<TextView>(R.id.folderSongs)
+        val art = holder.itemView.findViewById<ImageView>(R.id.folderArt)
+
+        if (folder.folderName.isBlank()){
+            art.setImageBitmap(null)
+            art.setColorFilter(Color.WHITE)
+        }
 
         name.text = folder.folderName
 
-
-        songs.text = "${folder.audioFileIds.size} songs"
+        songs.text = if (folder.folderName.isNotBlank()) "${folder.audioFileIds.size} songs" else ""
     }
 
     override fun getItemCount(): Int {

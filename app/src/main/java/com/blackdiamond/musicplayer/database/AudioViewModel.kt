@@ -47,4 +47,20 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
         return result
     }
+
+    fun getAllFolders(): LiveData<MutableList<AudioFolder>>{
+        var result = MutableLiveData<MutableList<AudioFolder>>()
+        viewModelScope.launch(Dispatchers.IO) {
+            result.postValue(dao.getAllFolders())
+        }
+        return result
+    }
+
+    fun getAllPlaylists(): LiveData<MutableList<PlayList>>{
+        var result = MutableLiveData<MutableList<PlayList>>()
+        viewModelScope.launch(Dispatchers.IO) {
+            result.postValue(dao.getAllPlayLists())
+        }
+        return result
+    }
 }
