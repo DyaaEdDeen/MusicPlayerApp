@@ -1,57 +1,83 @@
 package com.blackdiamond.musicplayer.activities
 
 import android.content.ContentUris
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
-import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.viewpager2.widget.ViewPager2
+import androidx.lifecycle.ViewModelProvider
 import com.blackdiamond.musicplayer.R
-import com.blackdiamond.musicplayer.adapters.ViewPagerAdapter
+import com.blackdiamond.musicplayer.database.AudioViewModel
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
-import com.blackdiamond.musicplayer.services.MusicPlayerService
-import com.google.android.material.tabs.TabLayout
-import com.google.android.material.tabs.TabLayoutMediator
 
 
 class MainActivity : AppCompatActivity() {
 
     var paused = false
+    lateinit var audioViewModel: AudioViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val (folders, songs) = getAudio()
-        val vpAdapter = ViewPagerAdapter(folders, songs, null)
-        val viewPager = findViewById<ViewPager2>(R.id.viewPager)
-        viewPager.adapter = vpAdapter
+        audioViewModel = ViewModelProvider(this)[AudioViewModel::class.java]
+        getAudio()
+//        val (folders, songs) = getAudio()
+//
+//        val vpAdapter = ViewPagerAdapter(folders, songs, null)
+//        val viewPager = findViewById<ViewPager2>(R.id.viewPager)
+//        viewPager.adapter = vpAdapter
+//
+//        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
+//
+//        val tabs = arrayOf("Songs", "Folders", "Playlists")
+//
+//        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+//            tab.text = tabs[position]
+//        }.attach()
+//
+//        val play = findViewById<ImageView>(R.id.playAudio)
+//
+//        play.setOnClickListener {
+//            Intent(this, MusicPlayerService::class.java).also {
+//                it.putExtra("order", "pause")
+//                startService(it)
+//            }
+//        }
+    }
 
-        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
-
-        val tabs = arrayOf("Songs", "Folders", "Playlists")
-
-        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-            tab.text = tabs[position]
-        }.attach()
-
-        val play = findViewById<ImageView>(R.id.playAudio)
-
-        play.setOnClickListener {
-            Intent(this, MusicPlayerService::class.java).also {
-                it.putExtra("order", "pause")
-                startService(it)
+    private fun getAudio(){
+        audioViewModel.getAllSongs().observe(this) { songs ->
+            if (songs.isEmpty()) {
+                loadSongsForTheFirstTime()
+                createSongFolders()
             }
         }
     }
 
-    private fun getAudio(): Pair<ArrayList<AudioFolder>, ArrayList<Audio>> {
-        val audioFolders: ArrayList<AudioFolder> = ArrayList()
-        val audioFiles: ArrayList<Audio> = ArrayList()
-        val folderMap = mutableMapOf<String, ArrayList<Audio>>()
+    private fun createSongFolders() {
+        audioViewModel.getAllSongs().observe(this) { songs ->
+            val songFolders = mutableMapOf<String, MutableList<Long>>()
+            for (song in songs) {
+                val folder = song.path.split("/")[song.path.split("/").size - 2]
+                if (songFolders.keys.contains(folder)) {
+                    songFolders[folder]!!.add(song.songId.toLong())
+                } else {
+                    songFolders[folder] = mutableListOf()
+                    songFolders[folder]!!.add(song.songId.toLong())
+                }
+            }
+            for (key in songFolders.keys) {
+                if (songFolders[key] != null){
+                    val folder = AudioFolder(key,songFolders[key]!!)
+                    audioViewModel.addFolder(folder)
+                }
+            }
+        }
+    }
+
+    private fun loadSongsForTheFirstTime() {
 
         val projection = arrayOf(
             MediaStore.Audio.Media.TITLE,
@@ -86,30 +112,16 @@ class MainActivity : AppCompatActivity() {
                 try {
                     contentResolver.openInputStream(uri)
                     art = uri
-                } catch (e: Exception) {//this file has no art !
-//                    Log.d("gettingAudio", "exception at : $e")
-                }
+                } catch (e: Exception) {
+                }//this file has no art !
+
                 val ext = data.split(".").last()
-                val folderName = data.split("/")[data.split("/").size - 2]
                 if (arrayOf("mp3", "m4a", "wav").contains(ext)) {
-                    val audioFile = Audio(name, duration, art, data)
-                    if (folderMap.keys.contains(folderName)) {
-                        folderMap[folderName]?.add(audioFile)
-                    } else {
-                        folderMap[folderName] = ArrayList()
-                        folderMap[folderName]?.add(audioFile)
-                    }
-                    audioFiles.add(audioFile)
+                    val audioFile = Audio(0, name, duration, art.toString(), data)
+                    audioViewModel.addAudio(audioFile)
                 }
             }
         }
-        for (key in folderMap.keys) {
-            val folder = folderMap[key]?.let { AudioFolder(key, it) }
-            if (folder != null) {
-                audioFolders.add(folder)
-            }
-        }
-        return Pair(audioFolders, audioFiles)
     }
 
 

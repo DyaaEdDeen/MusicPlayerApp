@@ -1,17 +1,22 @@
 package com.blackdiamond.musicplayer.dataclasses
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "playlist_table")
 class PlayList (
+    @PrimaryKey(autoGenerate = false)
     val name: String,
-    var audioFiles: ArrayList<Audio>
+    var audioFileIds: MutableList<Long>
     ){
 
-    fun addAudio(audio: Audio){
-        audioFiles.add(audio)
+    fun addAudio(audioId: Long){
+        audioFileIds.add(audioId)
     }
 
-    fun removeAudio(audio:Audio){
-        if (audioFiles.contains(audio)){
-            audioFiles.remove(audio)
+    fun removeAudio(audioId:Long){
+        if (audioFileIds.contains(audioId)){
+            audioFileIds.remove(audioId)
         }
     }
 }

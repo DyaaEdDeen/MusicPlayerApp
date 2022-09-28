@@ -3,6 +3,7 @@ package com.blackdiamond.musicplayer.adapters
 import android.content.ContentResolver
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -41,7 +42,7 @@ class SongsAdapter(private val songs: ArrayList<Audio>) :
 
         title.text = song.name
         if (song.art != null) {
-            val inputStream = holder.itemView.context.contentResolver.openInputStream(song.art)
+            val inputStream = holder.itemView.context.contentResolver.openInputStream(Uri.parse(song.art))
             art.setImageBitmap(BitmapFactory.decodeStream(inputStream))
             art.clearColorFilter()
         } else {

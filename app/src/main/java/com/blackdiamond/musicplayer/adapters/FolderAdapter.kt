@@ -32,7 +32,7 @@ class FolderAdapter(private val folders: ArrayList<AudioFolder>) :
         name.text = folder.folderName
 
 
-        songs.text = "${folder.audioFiles.size} songs"
+        songs.text = "${folder.audioFileIds.size} songs"
     }
 
     override fun getItemCount(): Int {
