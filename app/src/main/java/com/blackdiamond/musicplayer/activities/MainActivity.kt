@@ -1,47 +1,57 @@
 package com.blackdiamond.musicplayer.activities
 
 import android.content.ContentUris
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.blackdiamond.musicplayer.R
-import com.blackdiamond.musicplayer.adapters.SongsAdapter
 import com.blackdiamond.musicplayer.adapters.ViewPagerAdapter
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
+import com.blackdiamond.musicplayer.services.MusicPlayerService
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 
 
 class MainActivity : AppCompatActivity() {
 
+    var paused = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val vpAdapter = ViewPagerAdapter(getAudio().first,getAudio().second,null)
+        val (folders, songs) = getAudio()
+        val vpAdapter = ViewPagerAdapter(folders, songs, null)
         val viewPager = findViewById<ViewPager2>(R.id.viewPager)
         viewPager.adapter = vpAdapter
 
         val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
 
-        val tabs = arrayOf("Songs","Folders","Playlists")
+        val tabs = arrayOf("Songs", "Folders", "Playlists")
 
-        TabLayoutMediator(tabLayout,viewPager){ tab, position ->
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
             tab.text = tabs[position]
         }.attach()
+
+        val play = findViewById<ImageView>(R.id.playAudio)
+
+        play.setOnClickListener {
+            Intent(this, MusicPlayerService::class.java).also {
+                it.putExtra("order", "pause")
+                startService(it)
+            }
+        }
     }
 
-    private fun getAudio(): Pair<ArrayList<AudioFolder>,ArrayList<Audio>> {
+    private fun getAudio(): Pair<ArrayList<AudioFolder>, ArrayList<Audio>> {
         val audioFolders: ArrayList<AudioFolder> = ArrayList()
         val audioFiles: ArrayList<Audio> = ArrayList()
+        val folderMap = mutableMapOf<String, ArrayList<Audio>>()
 
         val projection = arrayOf(
             MediaStore.Audio.Media.TITLE,
@@ -63,7 +73,7 @@ class MainActivity : AppCompatActivity() {
                 val name =
                     cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE))
                 val duration =
-                    cursor.getFloat(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION))
+                    cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION))
                 val data =
                     cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA))
                 val albumID =
@@ -71,23 +81,35 @@ class MainActivity : AppCompatActivity() {
 
                 val artworkUri = Uri.parse("content://media/external/audio/albumart")
                 val uri = ContentUris.withAppendedId(artworkUri, albumID)
-                var art: Bitmap? = null
+                var art: Uri? = null
 
                 try {
-                    val inputStream = contentResolver.openInputStream(uri)
-                    art = BitmapFactory.decodeStream(inputStream)
+                    contentResolver.openInputStream(uri)
+                    art = uri
                 } catch (e: Exception) {//this file has no art !
 //                    Log.d("gettingAudio", "exception at : $e")
                 }
                 val ext = data.split(".").last()
+                val folderName = data.split("/")[data.split("/").size - 2]
                 if (arrayOf("mp3", "m4a", "wav").contains(ext)) {
                     val audioFile = Audio(name, duration, art, data)
-                    Log.d("gettingAudio", "audio : $audioFile")
+                    if (folderMap.keys.contains(folderName)) {
+                        folderMap[folderName]?.add(audioFile)
+                    } else {
+                        folderMap[folderName] = ArrayList()
+                        folderMap[folderName]?.add(audioFile)
+                    }
                     audioFiles.add(audioFile)
                 }
             }
         }
-        return Pair(audioFolders,audioFiles)
+        for (key in folderMap.keys) {
+            val folder = folderMap[key]?.let { AudioFolder(key, it) }
+            if (folder != null) {
+                audioFolders.add(folder)
+            }
+        }
+        return Pair(audioFolders, audioFiles)
     }
 
 

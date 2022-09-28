@@ -1,14 +1,18 @@
 package com.blackdiamond.musicplayer.dataclasses
 
 import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
-class Audio (
+@Parcelize
+class Audio(
     val name: String,
-    val duration: Float,
-    val art: Bitmap?,
+    val duration: Int,
+    val art: Uri?,
     val path: String
-){
+): Parcelable {
     override fun toString(): String {
-        return "[$name,$duration,$art,$path]"
+        return "[$name,$duration,${if (art != null) "has art" else "doesn't have Art"},$path]"
     }
 }

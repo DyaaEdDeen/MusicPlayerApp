@@ -3,6 +3,8 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+apply plugin: 'kotlin-parcelize'
+
 android {
     namespace 'com.blackdiamond.musicplayer'
     compileSdk 32

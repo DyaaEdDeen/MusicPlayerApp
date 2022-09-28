@@ -1,5 +1,6 @@
 package com.blackdiamond.musicplayer.adapters
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,8 +19,10 @@ class ViewPagerAdapter(
     var playlists: ArrayList<PlayList>?
 ) : RecyclerView.Adapter<ViewPagerAdapter.PagesViewHolder>() {
 
-    class PagesViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
+    val songsAdapter = SongsAdapter(songs)
+    val foldersAdapter = FolderAdapter(folders)
 
+    class PagesViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PagesViewHolder {
         return PagesViewHolder(
             LayoutInflater.from(parent.context).inflate(
@@ -32,22 +35,22 @@ class ViewPagerAdapter(
 
     override fun onBindViewHolder(holder: PagesViewHolder, position: Int) {
         val recyclerView = holder.itemView.findViewById<RecyclerView>(R.id.rvPages)
-        val songsAdapter = SongsAdapter(songs)
-
+        Log.d("ViewPagerAdapter","position : $position")
         when (position) {
             0 -> {
                 recyclerView.adapter = songsAdapter
                 recyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
             }
             1 -> {
-                Toast.makeText(holder.itemView.context, "We Are in Folders Tab!", Toast.LENGTH_SHORT)
-                    .show()
+                recyclerView.adapter = foldersAdapter
+                recyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
             }
             2 -> {
                 Toast.makeText(holder.itemView.context, "We Are in Playlist Tab!", Toast.LENGTH_SHORT)
                     .show()
             }
         }
+
     }
 
     override fun getItemCount(): Int {
