@@ -12,8 +12,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
-        app:tabIndicatorColor="@color/purple_200"
-        app:tabSelectedTextColor="@color/purple_200" />
+        app:tabIndicatorColor="@color/purple_700"
+        app:tabSelectedTextColor="@color/purple_500" />
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewPager"
@@ -69,8 +69,7 @@
                 android:ellipsize="end"
                 android:gravity="center"
                 android:maxLines="1"
-                android:text="Current Audio Title"
-                android:textColor="@color/purple_500"
+                android:textColor="@color/black"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -85,20 +84,23 @@
                     android:id="@+id/prevAudio"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:src="@drawable/ic_prev" />
+                    android:src="@drawable/ic_prev"
+                    app:tint="@color/black" />
 
                 <ImageView
                     android:id="@+id/playAudio"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:layout_marginHorizontal="16dp"
-                    android:src="@drawable/ic_play" />
+                    android:src="@drawable/ic_play"
+                    app:tint="@color/black"/>
 
                 <ImageView
                     android:id="@+id/skipAudio"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:src="@drawable/ic_skip" />
+                    android:src="@drawable/ic_skip"
+                    app:tint="@color/black"/>
 
             </LinearLayout>
 

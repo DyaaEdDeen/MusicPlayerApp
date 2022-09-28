@@ -16,7 +16,7 @@
         android:layout_height="64dp"
         android:layout_marginEnd="400dp"
         android:scaleType="centerCrop"
-        app:tint="@color/purple_200"
+        app:tint="@color/purple_700"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:srcCompat="@drawable/ic_play_list" />

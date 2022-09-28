@@ -34,6 +34,7 @@ class MusicPlayerService : Service() {
                                     playing()
                                     Thread.sleep(1000)
                                 }
+                                stopped()
                             }.start()
                         }
                     }

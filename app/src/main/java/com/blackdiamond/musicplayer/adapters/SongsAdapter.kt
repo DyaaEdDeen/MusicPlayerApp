@@ -56,7 +56,7 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
                 art.setColorFilter(Color.WHITE)
             } else {
                 art.setImageResource(R.drawable.ic_music)
-                val color = holder.itemView.resources.getColor(R.color.purple_200)
+                val color = holder.itemView.resources.getColor(R.color.purple_700)
                 art.setColorFilter(color)
             }
         }

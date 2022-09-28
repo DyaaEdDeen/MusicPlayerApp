@@ -2,6 +2,7 @@ package com.blackdiamond.musicplayer.activities
 
 import android.content.*
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -76,6 +77,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
+
         bottomControllerPlay.setOnClickListener {
             musicPlayerServiceIntent.putExtra("order","pause")
             startService(musicPlayerServiceIntent)
@@ -90,8 +93,10 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
                     bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
+                    bottomControllerArt.clearColorFilter()
                 }catch (e: Exception){
                     bottomControllerArt.setImageResource(R.drawable.ic_music)
+                    bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }
                 bottomControllerPlay.setImageResource(R.drawable.ic_pause)
                 bottomControllerTitle.text = audio.name
@@ -119,8 +124,10 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
                     bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
+                    bottomControllerArt.clearColorFilter()
                 }catch (e: Exception){
                     bottomControllerArt.setImageResource(R.drawable.ic_music)
+                    bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }
                 bottomControllerTitle.text = audio.name
             }
