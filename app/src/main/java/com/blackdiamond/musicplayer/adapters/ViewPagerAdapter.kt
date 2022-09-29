@@ -1,25 +1,31 @@
 package com.blackdiamond.musicplayer.adapters
 
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.blackdiamond.musicplayer.R
+import com.blackdiamond.musicplayer.activities.MainActivity
+import com.blackdiamond.musicplayer.database.AudioViewModel
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.dataclasses.PlayList
 
 class ViewPagerAdapter(
-    folders: MutableList<AudioFolder>,
+    var folders: MutableList<AudioFolder>,
     songs: MutableList<Audio>,
-    playlists: MutableList<PlayList>?
+    var playlists: MutableList<PlayList>?,
+    var audioViewModel: AudioViewModel,
+    var parent: MainActivity
 ) : RecyclerView.Adapter<ViewPagerAdapter.PagesViewHolder>() {
 
+    var folderSongs = mutableListOf<Audio>()
+    var folderView  = "folders"
+
     val songsAdapter = SongsAdapter(songs)
-    val foldersAdapter = FolderAdapter(folders)
-    val playListAdapter = PlayListAdapter(playlists!!)
+    val foldersAdapter = FolderAdapter(folders, this, audioViewModel)
+    var playListAdapter = PlayListAdapter(playlists!!)
 
     class PagesViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
 
@@ -40,7 +46,11 @@ class ViewPagerAdapter(
                 recyclerView.adapter = songsAdapter
             }
             1 -> {
-                recyclerView.adapter = foldersAdapter
+                if (folderView == "folderSongs") {
+                    recyclerView.adapter = SongsAdapter(folderSongs)
+                } else {
+                    recyclerView.adapter = foldersAdapter
+                }
             }
             2 -> {
                 recyclerView.adapter = playListAdapter
@@ -48,6 +58,17 @@ class ViewPagerAdapter(
         }
         recyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
 
+    }
+
+    fun changeFolderView(_folderSongs: MutableList<Audio> = mutableListOf(),folderName:String = "") {
+        folderSongs = _folderSongs
+        folderView = if (folderSongs.isEmpty()){
+            "folders"
+        }else{
+            "folderSongs"
+        }
+        notifyItemChanged(1)
+        parent.setFolderTabView(folderView,folderName)
     }
 
     override fun getItemCount(): Int {

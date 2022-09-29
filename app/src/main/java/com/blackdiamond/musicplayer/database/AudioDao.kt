@@ -36,7 +36,7 @@ interface AudioDao {
     fun getAllPlayLists() : MutableList<PlayList>
 
     @Query("select * from songs_table where songId like :id")
-    fun getSong(id : Int) : Audio
+    fun getSong(id : Long) : Audio
 
 
 }

@@ -2,14 +2,11 @@ package com.blackdiamond.musicplayer.activities
 
 import android.content.*
 import android.graphics.BitmapFactory
-import android.graphics.Color
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -23,34 +20,36 @@ import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.services.MusicPlayerService
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
-import java.io.InputStream
 
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var audioViewModel: AudioViewModel
+    lateinit var audioViewModel: AudioViewModel
+    lateinit var vpAdapter: ViewPagerAdapter
     private lateinit var musicPlayerServiceIntent: Intent
 
+    private lateinit var tabLayout: TabLayout
     private lateinit var bottomControllerArt: ImageView
     private lateinit var bottomControllerTitle: TextView
     private lateinit var bottomControllerPlay: ImageView
     private lateinit var bottomControllerSkip: ImageView
     private lateinit var bottomControllerPrev: ImageView
 
+    var folderView: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         audioViewModel = ViewModelProvider(this)[AudioViewModel::class.java]
-        musicPlayerServiceIntent = Intent(applicationContext,MusicPlayerService::class.java)
+        musicPlayerServiceIntent = Intent(applicationContext, MusicPlayerService::class.java)
 
         registerReceiver(songAddedToMusicPlayer, IntentFilter("songAdded"))
         registerReceiver(playerStateChanged, IntentFilter("playerStateChanged"))
         registerReceiver(getLastAudio, IntentFilter("lastAudio"))
 
         val viewPager = findViewById<ViewPager2>(R.id.viewPager)
-        val tabLayout = findViewById<TabLayout>(R.id.tabLayout)
+        tabLayout = findViewById(R.id.tabLayout)
 
         bottomControllerArt = findViewById(R.id.currentAudioArt)
         bottomControllerTitle = findViewById(R.id.currentAudioTitle)
@@ -65,12 +64,13 @@ class MainActivity : AppCompatActivity() {
             audioViewModel.getAllSongs().observe(this) { songs ->
                 audioViewModel.getAllFolders().observe(this) { folders ->
                     audioViewModel.getAllPlaylists().observe(this) { playlists ->
-                        val vpAdapter = ViewPagerAdapter(folders, songs, playlists)
+                        vpAdapter =
+                            ViewPagerAdapter(folders, songs, playlists, audioViewModel, this)
                         viewPager.adapter = vpAdapter
                         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
                             tab.text = tabs[position]
                         }.attach()
-                        musicPlayerServiceIntent.putExtra("order","lastSong")
+                        musicPlayerServiceIntent.putExtra("order", "lastSong")
                         startService(musicPlayerServiceIntent)
                     }
                 }
@@ -80,21 +80,36 @@ class MainActivity : AppCompatActivity() {
         bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
 
         bottomControllerPlay.setOnClickListener {
-            musicPlayerServiceIntent.putExtra("order","pause")
+            musicPlayerServiceIntent.putExtra("order", "pause")
             startService(musicPlayerServiceIntent)
         }
 
     }
 
-    private val songAddedToMusicPlayer : BroadcastReceiver = object : BroadcastReceiver(){
+    fun setFolderTabView(state: String,folderName:String = "") {
+        folderView = state
+        if (folderView == "folders") {
+            tabLayout.getTabAt(1)?.text = "FOLDERS"
+        }else{
+            tabLayout.getTabAt(1)?.text = folderName
+        }
+    }
+
+    override fun onBackPressed() {
+        if (folderView.isBlank() || folderView == "folders") super.onBackPressed()
+        vpAdapter.changeFolderView()
+        tabLayout.selectTab(tabLayout.getTabAt(1))
+    }
+
+    private val songAddedToMusicPlayer: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, intent: Intent?) {
             val audio = intent?.getParcelableExtra<Audio>("addedAudio")
-            if (audio != null){
+            if (audio != null) {
                 try {
                     val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
                     bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
                     bottomControllerArt.clearColorFilter()
-                }catch (e: Exception){
+                } catch (e: Exception) {
                     bottomControllerArt.setImageResource(R.drawable.ic_music)
                     bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }
@@ -104,28 +119,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val playerStateChanged : BroadcastReceiver = object : BroadcastReceiver(){
+    private val playerStateChanged: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, intent: Intent?) {
             val state = intent?.getStringExtra("state")
-            if (state != null){
-                if (state == "paused"){
+            if (state != null) {
+                if (state == "paused") {
                     bottomControllerPlay.setImageResource(R.drawable.ic_play)
-                }else{
+                } else {
                     bottomControllerPlay.setImageResource(R.drawable.ic_pause)
                 }
             }
         }
     }
 
-    private val getLastAudio : BroadcastReceiver = object : BroadcastReceiver(){
+    private val getLastAudio: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, intent: Intent?) {
             val audio = intent?.getParcelableExtra<Audio>("lastAudio")
-            if (audio != null){
+            if (audio != null) {
                 try {
                     val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
                     bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
                     bottomControllerArt.clearColorFilter()
-                }catch (e: Exception){
+                } catch (e: Exception) {
                     bottomControllerArt.setImageResource(R.drawable.ic_music)
                     bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }

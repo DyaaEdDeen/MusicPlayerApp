@@ -61,7 +61,7 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
             }
         }
 
-        duration.text = formateDuration(song.duration)
+        duration.text = if(song.songId != -1) formateDuration(song.duration) else ""
 
         songView.setOnClickListener {
             if (song.songId != -1) {

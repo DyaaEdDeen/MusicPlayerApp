@@ -1,6 +1,7 @@
 package com.blackdiamond.musicplayer.database
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -40,6 +41,19 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun getSongs(iDs: MutableList<Long>): LiveData<MutableList<Audio>>{
+        var result = MutableLiveData<MutableList<Audio>>()
+        viewModelScope.launch(Dispatchers.IO) {
+            var audios = mutableListOf<Audio>()
+            for (id in iDs){
+                var audio = dao.getSong(id)
+                audios.add(audio)
+            }
+            result.postValue(audios)
+        }
+        return result
+    }
+
     fun getAllSongs(): LiveData<MutableList<Audio>>{
         var result = MutableLiveData<MutableList<Audio>>()
         viewModelScope.launch(Dispatchers.IO) {
@@ -62,5 +76,9 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             result.postValue(dao.getAllPlayLists())
         }
         return result
+    }
+
+    fun getContext(): Context {
+        return getContext()
     }
 }
