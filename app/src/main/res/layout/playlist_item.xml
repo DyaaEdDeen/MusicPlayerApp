@@ -29,7 +29,7 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:text="Playlist Name"
-        android:textColor="@color/purple_200"
+        android:textColor="@color/purple_500"
         android:textSize="20sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@+id/playListSongs"
@@ -43,7 +43,7 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="8dp"
         android:text="99 songs"
-        android:textColor="@color/purple_500"
+        android:textColor="@color/purple_700"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/playListArt"
         app:layout_constraintTop_toBottomOf="@+id/playListName" />

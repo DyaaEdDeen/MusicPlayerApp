@@ -18,6 +18,7 @@ import com.blackdiamond.musicplayer.services.MusicPlayerService
 class SongsAdapter(private val songs: MutableList<Audio>) :
     RecyclerView.Adapter<SongsAdapter.SongsViewHolder>() {
 
+    var lastClicked = -1
 
     init {
         songs.add(Audio(-1, "", 0, null, ""))
@@ -45,6 +46,14 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
 
         title.text = song.name
 
+        if (lastClicked == position){
+            title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
+            duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
+        }else{
+            title.setTextColor(holder.itemView.context.resources.getColor(R.color.purple_500))
+            duration.setTextColor(holder.itemView.context.resources.getColor(R.color.purple_700))
+        }
+
         try {
             val inputStream =
                 holder.itemView.context.contentResolver.openInputStream(Uri.parse(song.art))
@@ -68,6 +77,10 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
                 val i = Intent(holder.itemView.context, MusicPlayerService::class.java)
                 i.putExtra("currentAudio", song)
                 holder.itemView.context.startService(i)
+                title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
+                duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
+                notifyItemChanged(lastClicked)
+                lastClicked = position
             }
         }
 
