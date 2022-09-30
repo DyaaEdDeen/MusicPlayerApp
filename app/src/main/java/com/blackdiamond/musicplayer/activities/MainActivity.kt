@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -17,6 +18,7 @@ import com.blackdiamond.musicplayer.adapters.ViewPagerAdapter
 import com.blackdiamond.musicplayer.database.AudioViewModel
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
+import com.blackdiamond.musicplayer.dataclasses.UserPref
 import com.blackdiamond.musicplayer.services.MusicPlayerService
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -26,7 +28,6 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var audioViewModel: AudioViewModel
     lateinit var vpAdapter: ViewPagerAdapter
-    private lateinit var musicPlayerServiceIntent: Intent
 
     private lateinit var tabLayout: TabLayout
     private lateinit var bottomControllerArt: ImageView
@@ -42,11 +43,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         audioViewModel = ViewModelProvider(this)[AudioViewModel::class.java]
-        musicPlayerServiceIntent = Intent(applicationContext, MusicPlayerService::class.java)
 
         registerReceiver(songAddedToMusicPlayer, IntentFilter("songAdded"))
         registerReceiver(playerStateChanged, IntentFilter("playerStateChanged"))
         registerReceiver(getLastAudio, IntentFilter("lastAudio"))
+        registerReceiver(noAudio, IntentFilter("noAudio"))
 
         val viewPager = findViewById<ViewPager2>(R.id.viewPager)
         tabLayout = findViewById(R.id.tabLayout)
@@ -70,8 +71,10 @@ class MainActivity : AppCompatActivity() {
                         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
                             tab.text = tabs[position]
                         }.attach()
-                        musicPlayerServiceIntent.putExtra("order", "lastSong")
-                        startService(musicPlayerServiceIntent)
+
+                        startService(Intent(applicationContext, MusicPlayerService::class.java).also {
+                            it.putExtra("order", "lastSong")
+                        })
                     }
                 }
             }
@@ -80,17 +83,18 @@ class MainActivity : AppCompatActivity() {
         bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
 
         bottomControllerPlay.setOnClickListener {
-            musicPlayerServiceIntent.putExtra("order", "pause")
-            startService(musicPlayerServiceIntent)
+            startService(Intent(applicationContext, MusicPlayerService::class.java).also {
+                it.putExtra("order", "pause")
+            })
         }
 
     }
 
-    fun setFolderTabView(state: String,folderName:String = "") {
+    fun setFolderTabView(state: String, folderName: String = "") {
         folderView = state
         if (folderView == "folders") {
             tabLayout.getTabAt(1)?.text = "FOLDERS"
-        }else{
+        } else {
             tabLayout.getTabAt(1)?.text = folderName
         }
     }
@@ -113,8 +117,8 @@ class MainActivity : AppCompatActivity() {
                     bottomControllerArt.setImageResource(R.drawable.ic_music)
                     bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }
-                bottomControllerPlay.setImageResource(R.drawable.ic_pause)
                 bottomControllerTitle.text = audio.name
+                audioViewModel.addUserPref(UserPref("userPref", audio.songId.toLong(), ""))
             }
         }
     }
@@ -149,20 +153,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val noAudio: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(p0: Context?, p1: Intent?) {
+            audioViewModel.getUserPref().observe(this@MainActivity) { userPref ->
+                if (userPref != null) {
+                    audioViewModel.getSongs(mutableListOf(userPref.last_played!!))
+                        .observe(this@MainActivity) { songs ->
+                            if (songs.isNotEmpty()) {
+                                Toast.makeText(
+                                    applicationContext,
+                                    "${songs[0]}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                startService(Intent(applicationContext, MusicPlayerService::class.java).also {
+                                    it.putExtra("lastAudio", songs[0])
+                                })
+                            }
+                        }
+                }
+            }
+        }
+    }
+
     private fun getAudio(): LiveData<Boolean> {
         var result = MutableLiveData<Boolean>()
         audioViewModel.getAllSongs().observe(this) { songs ->
             if (songs.isEmpty()) {
                 loadSongsForTheFirstTime()
-                createSongFolders()
-                result.postValue(true)
+                createSongFolders().observe(this) {
+                    result.postValue(true)
+                }
             }
             result.postValue(true)
         }
         return result
     }
 
-    private fun createSongFolders() {
+    private fun createSongFolders(): LiveData<Boolean> {
+        val result = MutableLiveData<Boolean>()
         audioViewModel.getAllSongs().observe(this) { songs ->
             val songFolders = mutableMapOf<String, MutableList<Long>>()
             for (song in songs) {
@@ -180,7 +208,9 @@ class MainActivity : AppCompatActivity() {
                     audioViewModel.addFolder(folder)
                 }
             }
+            result.postValue(true)
         }
+        return result
     }
 
     private fun loadSongsForTheFirstTime() {

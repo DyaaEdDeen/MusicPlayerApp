@@ -46,10 +46,10 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
 
         title.text = song.name
 
-        if (lastClicked == position){
+        if (lastClicked == position) {
             title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
             duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
-        }else{
+        } else {
             title.setTextColor(holder.itemView.context.resources.getColor(R.color.purple_500))
             duration.setTextColor(holder.itemView.context.resources.getColor(R.color.purple_700))
         }
@@ -70,7 +70,7 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
             }
         }
 
-        duration.text = if(song.songId != -1) formateDuration(song.duration) else ""
+        duration.text = if (song.songId != -1) formateDuration(song.duration) else ""
 
         songView.setOnClickListener {
             if (song.songId != -1) {
@@ -79,8 +79,10 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
                 holder.itemView.context.startService(i)
                 title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
                 duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
-                notifyItemChanged(lastClicked)
-                lastClicked = position
+                if (lastClicked != position) {
+                    notifyItemChanged(lastClicked)
+                    lastClicked = position
+                }
             }
         }
 

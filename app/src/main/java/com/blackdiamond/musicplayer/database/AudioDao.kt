@@ -9,6 +9,7 @@ import androidx.room.Query
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.dataclasses.PlayList
+import com.blackdiamond.musicplayer.dataclasses.UserPref
 
 @Dao
 interface AudioDao {
@@ -22,6 +23,8 @@ interface AudioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addPlaylist(playList: PlayList)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun addUserPref(userPref: UserPref)
 
     @Delete
     fun deleteSong(song: Audio)
@@ -37,6 +40,9 @@ interface AudioDao {
 
     @Query("select * from songs_table where songId like :id")
     fun getSong(id : Long) : Audio
+
+    @Query("select * from user_pref where `key` like :key")
+    fun getUserPref(key : String = "userPref") : UserPref
 
 
 }

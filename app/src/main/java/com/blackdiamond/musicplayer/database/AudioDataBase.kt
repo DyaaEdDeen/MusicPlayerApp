@@ -5,8 +5,9 @@ import androidx.room.*
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.dataclasses.PlayList
+import com.blackdiamond.musicplayer.dataclasses.UserPref
 
-@Database(entities = [Audio::class, AudioFolder::class, PlayList::class], version = 1)
+@Database(entities = [Audio::class, AudioFolder::class, PlayList::class,UserPref::class], version = 1, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AudioDataBase : RoomDatabase() {
 

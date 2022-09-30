@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.dataclasses.PlayList
+import com.blackdiamond.musicplayer.dataclasses.UserPref
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -39,6 +40,20 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             dao.addPlaylist(playList)
         }
+    }
+
+    fun addUserPref(userPref: UserPref){
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.addUserPref(userPref)
+        }
+    }
+
+    fun getUserPref(key: String = "userPref") : LiveData<UserPref> {
+        val result = MutableLiveData<UserPref>()
+        viewModelScope.launch(Dispatchers.IO) {
+            result.postValue(dao.getUserPref(key))
+        }
+        return result
     }
 
     fun getSongs(iDs: MutableList<Long>): LiveData<MutableList<Audio>>{
