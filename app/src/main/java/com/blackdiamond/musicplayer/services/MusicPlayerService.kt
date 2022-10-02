@@ -3,6 +3,7 @@ package com.blackdiamond.musicplayer.services
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_MUTABLE
 import android.app.Service
+import android.content.ContentUris
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.MediaMetadata
@@ -12,6 +13,7 @@ import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import android.util.Log
 import android.view.KeyEvent
 import android.view.KeyEvent.*
 import androidx.core.app.NotificationCompat
@@ -26,10 +28,12 @@ import com.blackdiamond.musicplayer.dataclasses.Songs
 
 class MusicPlayerService : Service() {
 
+    private val TAG = MusicPlayerService::class.java.simpleName
+
     private var player = MediaPlayer()
     private var audio: Audio? = null
     private var _audio: Audio? = null
-    private var que: MutableList<Audio>? = null
+    private var que: MutableList<Audio> = mutableListOf()
     private var last_pos: Int = -1
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var dao: AudioDao
@@ -108,51 +112,52 @@ class MusicPlayerService : Service() {
         }
         audio = intent?.getParcelableExtra("currentAudio") as? Audio
         if (audio != null) {
-            last_pos = que?.indexOf(audio!!) ?: -1
+            val quee = intent?.getParcelableExtra<Songs>("quee")
+            if (quee != null) {
+                que = quee.songs
+                last_pos = que.indexOf(que.filter { song-> song.songId == audio?.songId }[0])
+                val isAudioExt = que.contains(audio)
+                Log.e(TAG, "(lastAudio) got que : ${que.size} | last pos : $last_pos | audio : $audio | audio in que : $isAudioExt" )
+            }
             changeAudio()
         }
         audio = intent?.getParcelableExtra("lastAudio") as? Audio
         if (audio != null) {
             _audio = audio
+            val quee = intent?.getParcelableExtra<Songs>("quee")
+            if (quee != null) {
+                que = quee.songs
+                last_pos = que.indexOf(que.filter { song-> song.songId == audio?.songId }[0])
+                val isAudioExt = que.contains(audio)
+                Log.e(TAG, "(lastAudio) got que : ${que.size} | last pos : $last_pos | audio in que : $isAudioExt" )
+            }
             lastAudio()
             player.reset()
             player.setDataSource(this, Uri.parse(audio!!.path))
             player.prepare()
         }
-        val quee = intent?.getParcelableExtra<Songs>("quee")
-        if (quee != null) {
-            que = quee.songs
-        }
-        val pos = intent?.getIntExtra("pos", -1)!!
-        if (pos != -1){
-            last_pos = pos
-        }
         return START_STICKY
 
     }
 
-    private fun skip(){
-        if (que != null) {
-            if (last_pos < que?.size!! - 2) {
-                audio = que?.get(last_pos + 1)
-                if (audio != null) {
-                    last_pos += 1
-                    _audio = audio
-                    changeAudio()
-                }
+    private fun skip() {
+        if (last_pos < que.size - 2) {
+            audio = que[last_pos + 1]
+            if (audio != null) {
+                last_pos += 1
+                _audio = audio
+                changeAudio()
             }
         }
     }
 
-    private fun prev(){
-        if (que != null) {
-            if (last_pos > 0) {
-                audio = que?.get(last_pos - 1)
-                if (audio != null) {
-                    last_pos -= 1
-                    _audio = audio
-                    changeAudio()
-                }
+    private fun prev() {
+        if (last_pos > 0) {
+            audio = que[last_pos - 1]
+            if (audio != null) {
+                last_pos -= 1
+                _audio = audio
+                changeAudio()
             }
         }
     }
@@ -172,6 +177,7 @@ class MusicPlayerService : Service() {
         }.start()
         player.setOnCompletionListener {
             stopped()
+            skip()
         }
         _audio = audio
     }
@@ -208,7 +214,7 @@ class MusicPlayerService : Service() {
     private fun songAdded() {
         sendBroadcast(Intent("songAdded").also {
             it.putExtra("addedAudio", audio)
-            it.putExtra("pos",last_pos)
+            it.putExtra("que", que.map { audio -> audio.songId }.joinToString(separator = ","))
         })
         makeNotification()
     }
@@ -216,7 +222,6 @@ class MusicPlayerService : Service() {
     private fun lastAudio() {
         sendBroadcast(Intent("lastAudio").also {
             it.putExtra("lastAudio", _audio)
-            it.putExtra("pos",last_pos)
         })
     }
 
@@ -259,12 +264,16 @@ class MusicPlayerService : Service() {
             }, FLAG_MUTABLE
         )
 
+        val artworkUri = Uri.parse("content://media/external/audio/albumart")
+        var artUri = audio?.albumId?.let { ContentUris.withAppendedId(artworkUri, it) }
+
         val image = try {
-            val inputStream = contentResolver.openInputStream(Uri.parse(_audio?.art))
+            val inputStream = artUri?.let { contentResolver.openInputStream(it) }
             BitmapFactory.decodeStream(inputStream)
         } catch (e: Exception) {
             BitmapFactory.decodeResource(resources, R.drawable.ic_music)
         }
+
 
         mediaSession.setMetadata(
             MediaMetadataCompat.Builder()

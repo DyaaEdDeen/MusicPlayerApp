@@ -3,15 +3,17 @@ package com.blackdiamond.musicplayer.database
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.dataclasses.PlayList
 import com.blackdiamond.musicplayer.dataclasses.UserPref
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -21,79 +23,82 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         dao = AudioDataBase.getDataBase(application).dao()
     }
 
-    fun addAudio(audio: Audio): LiveData<Long> {
-        var result = MutableLiveData<Long>()
-        viewModelScope.launch(Dispatchers.IO) {
-            val id = dao.addSong(audio)
-            result.postValue(id)
+    fun addAudio(audio: Audio): Flow<Long> {
+        return flow {
+            emit(dao.addSong(audio))
         }
-        return result
     }
 
-    fun addFolder (folder: AudioFolder){
-        viewModelScope.launch(Dispatchers.IO) {
+    fun addFolder(folder: AudioFolder) {
+        viewModelScope.launch(Dispatchers.Default) {
             dao.addFolder(folder)
         }
     }
 
-    fun addPlayList(playList: PlayList){
-        viewModelScope.launch(Dispatchers.IO) {
+    fun addPlayList(playList: PlayList) {
+        viewModelScope.launch(Dispatchers.Default) {
             dao.addPlaylist(playList)
         }
     }
 
-    fun addUserPref(userPref: UserPref){
-        viewModelScope.launch(Dispatchers.IO) {
+    fun addUserPref(userPref: UserPref) {
+        viewModelScope.launch(Dispatchers.Default) {
             dao.addUserPref(userPref)
         }
     }
 
-    fun getUserPref(key: String = "userPref") : LiveData<UserPref> {
-        val result = MutableLiveData<UserPref>()
-        viewModelScope.launch(Dispatchers.IO) {
-            result.postValue(dao.getUserPref(key))
+    fun getUserPref(key: String = "userPref"): Flow<UserPref?> {
+        return flow {
+            emit(dao.getUserPref(key))
         }
-        return result
     }
 
-    fun getSongs(iDs: MutableList<Long>): LiveData<MutableList<Audio>>{
-        var result = MutableLiveData<MutableList<Audio>>()
-        viewModelScope.launch(Dispatchers.IO) {
-            var audios = mutableListOf<Audio>()
-            for (id in iDs){
-                var audio = dao.getSong(id)
-                audios.add(audio)
+    fun getSongs(iDs: MutableList<Long>): Flow<MutableList<Audio>> {
+        return flow {
+            var songs = mutableListOf<Audio>()
+            for (id in iDs) {
+                runBlocking {
+                    val song = dao.getSong(id)
+                    songs.add(song)
+                }
             }
-            result.postValue(audios)
+            emit(songs)
         }
-        return result
     }
 
-    fun getAllSongs(): LiveData<MutableList<Audio>>{
-        var result = MutableLiveData<MutableList<Audio>>()
-        viewModelScope.launch(Dispatchers.IO) {
-            result.postValue(dao.getAllSongs())
+    fun getSong(path: String) : Flow<Audio?>{
+        return flow{
+            emit(dao.getSong(path))
         }
-        return result
     }
 
-    fun getAllFolders(): LiveData<MutableList<AudioFolder>>{
-        var result = MutableLiveData<MutableList<AudioFolder>>()
-        viewModelScope.launch(Dispatchers.IO) {
-            result.postValue(dao.getAllFolders())
+    fun getSong(id: Long) : Flow<Audio?>{
+        return flow{
+            emit(dao.getSong(id))
         }
-        return result
     }
 
-    fun getAllPlaylists(): LiveData<MutableList<PlayList>>{
-        var result = MutableLiveData<MutableList<PlayList>>()
-        viewModelScope.launch(Dispatchers.IO) {
-            result.postValue(dao.getAllPlayLists())
+    fun getFolder(name : String) : Flow<AudioFolder?>{
+        return flow{
+            emit(dao.getFolder(name))
         }
-        return result
     }
 
-    fun getContext(): Context {
-        return getContext()
+    fun getAllSongs(): Flow<MutableList<Audio>> {
+        return flow {
+            emit(dao.getAllSongs())
+        }
+    }
+
+    fun getAllFolders(): Flow<MutableList<AudioFolder>> {
+        return flow {
+            emit(dao.getAllFolders())
+        }
+    }
+
+    fun getAllPlaylists(): Flow<MutableList<PlayList>> {
+        return flow {
+            emit(dao.getAllPlayLists())
+        }
     }
 }

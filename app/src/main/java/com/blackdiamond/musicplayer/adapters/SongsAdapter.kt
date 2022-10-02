@@ -1,9 +1,11 @@
 package com.blackdiamond.musicplayer.adapters
 
+import android.content.ContentUris
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,10 +22,15 @@ import com.blackdiamond.musicplayer.services.MusicPlayerService
 class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapter) :
     RecyclerView.Adapter<SongsAdapter.SongsViewHolder>() {
 
-    var lastClicked = -1
+    val TAG = SongsAdapter::class.java.simpleName
+    private var lastClicked = -1
 
     init {
-        songs.add(Audio(-1, "", 0, null, ""))
+        val dummy = Audio(-1, "", 0, 0, "")
+        if (songs.none { audio -> audio.songId == -1 }){
+            songs.add(dummy)
+            Log.e(TAG, "added dummy")
+        }
     }
 
     class SongsViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
@@ -48,7 +55,7 @@ class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapt
 
         title.text = song.name
 
-        if (lastClicked == position) {
+        if (lastClicked == holder.adapterPosition) {
             title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
             duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
         } else {
@@ -56,9 +63,12 @@ class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapt
             duration.setTextColor(holder.itemView.context.resources.getColor(R.color.purple_700))
         }
 
+        val artworkUri = Uri.parse("content://media/external/audio/albumart")
+        var artUri = ContentUris.withAppendedId(artworkUri, songs[holder.adapterPosition].albumId)
+
+        //check if this audio have album art !
         try {
-            val inputStream =
-                holder.itemView.context.contentResolver.openInputStream(Uri.parse(song.art))
+            val inputStream = holder.itemView.context.contentResolver.openInputStream(artUri)
             art.setImageBitmap(BitmapFactory.decodeStream(inputStream))
             art.clearColorFilter()
         } catch (e: Exception) {
@@ -78,23 +88,24 @@ class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapt
             if (song.songId != -1) {
                 val i = Intent(holder.itemView.context, MusicPlayerService::class.java)
                 i.putExtra("currentAudio", song)
-                val list = Songs(songs)
+                val list = Songs(songs.filter { audio-> audio.songId != -1 } as MutableList<Audio>)
                 i.putExtra("quee", list)
-                i.putExtra("pos", position)
+                i.putExtra("pos", holder.adapterPosition)
                 holder.itemView.context.startService(i)
                 title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
                 duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
-                if (lastClicked != position) {
+                if (lastClicked != holder.adapterPosition) {
                     notifyItemChanged(lastClicked)
-                    lastClicked = position
+                    lastClicked = holder.adapterPosition
                 }
             }
         }
 
     }
 
-    fun songChanged(pos: Int) {
+    fun songChanged(audio: Audio) {
         val last = lastClicked
+        val pos = songs.indexOf(songs.filter { song-> song.songId == audio.songId }[0])
         lastClicked = pos
         notifyItemChanged(pos)
         notifyItemChanged(last)

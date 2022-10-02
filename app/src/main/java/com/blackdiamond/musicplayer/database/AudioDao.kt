@@ -17,7 +17,7 @@ interface AudioDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun addSong(song: Audio) : Long
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addFolder(folder: AudioFolder)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -29,10 +29,14 @@ interface AudioDao {
     @Delete
     fun deleteSong(song: Audio)
 
-    @Query("select * from songs_table")
+
+    @Query("select * from audio_folder_table where folderName like :name")
+    fun getFolder(name:String) : AudioFolder
+
+    @Query("select * from songs_table order by songId asc")
     fun getAllSongs() : MutableList<Audio>
 
-    @Query("select * from audio_folder_table")
+    @Query("select * from audio_folder_table order by folderName desc")
     fun getAllFolders() : MutableList<AudioFolder>
 
     @Query("select * from playlist_table")
@@ -40,6 +44,9 @@ interface AudioDao {
 
     @Query("select * from songs_table where songId like :id")
     fun getSong(id : Long) : Audio
+
+    @Query("select * from songs_table where path like :path")
+    fun getSong(path : String) : Audio
 
     @Query("select * from user_pref where `key` like :key")
     fun getUserPref(key : String = "userPref") : UserPref

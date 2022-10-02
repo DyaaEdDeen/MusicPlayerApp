@@ -13,10 +13,10 @@ class Audio(
     val songId: Int,
     val name: String,
     val duration: Int,
-    val art: String?,
+    val albumId: Long,
     val path: String
 ) : Parcelable {
     override fun toString(): String {
-        return "[$name,$duration,${if (art != null) "has art" else "doesn't have Art"},$path]"
+        return "[$name,$duration,$albumId,$path]"
     }
 }

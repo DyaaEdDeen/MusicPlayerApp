@@ -8,4 +8,8 @@ class AudioFolder(
     @PrimaryKey(autoGenerate = false)
     val folderName: String,
     val audioFileIds: MutableList<Long>
-)
+){
+    override fun toString(): String {
+        return folderName
+    }
+}

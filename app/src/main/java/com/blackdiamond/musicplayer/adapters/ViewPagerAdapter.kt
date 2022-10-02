@@ -11,6 +11,9 @@ import com.blackdiamond.musicplayer.database.AudioViewModel
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.AudioFolder
 import com.blackdiamond.musicplayer.dataclasses.PlayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ViewPagerAdapter(
     var folders: MutableList<AudioFolder>,
@@ -62,8 +65,8 @@ class ViewPagerAdapter(
 
     }
 
-    fun notifySongsAdapterWithPos(pos: Int){
-        songsAdapter.songChanged(pos)
+    fun notifySongsAdapterWithPos(audio: Audio){
+        songsAdapter.songChanged(audio)
     }
 
     fun changeFolderView(_folderSongs: MutableList<Audio> = mutableListOf(),folderName:String = "") {
@@ -73,7 +76,9 @@ class ViewPagerAdapter(
         }else{
             "folderSongs"
         }
-        notifyItemChanged(1)
+        CoroutineScope(Dispatchers.Main).launch {
+            notifyItemChanged(1)
+        }
         parent.setFolderTabView(folderView,folderName)
     }
 

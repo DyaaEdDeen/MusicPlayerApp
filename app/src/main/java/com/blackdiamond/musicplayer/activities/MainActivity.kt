@@ -5,29 +5,31 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
 import androidx.viewpager2.widget.ViewPager2
 import com.blackdiamond.musicplayer.R
 import com.blackdiamond.musicplayer.adapters.ViewPagerAdapter
 import com.blackdiamond.musicplayer.database.AudioViewModel
-import com.blackdiamond.musicplayer.dataclasses.Audio
-import com.blackdiamond.musicplayer.dataclasses.AudioFolder
-import com.blackdiamond.musicplayer.dataclasses.UserPref
+import com.blackdiamond.musicplayer.dataclasses.*
 import com.blackdiamond.musicplayer.services.MusicPlayerService
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 
 class MainActivity : AppCompatActivity() {
 
     lateinit var audioViewModel: AudioViewModel
     lateinit var vpAdapter: ViewPagerAdapter
+    var firstTime = false
+    val TAG = MainActivity::class.java.simpleName
 
     private lateinit var tabLayout: TabLayout
     private lateinit var bottomControllerArt: ImageView
@@ -43,6 +45,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         audioViewModel = ViewModelProvider(this)[AudioViewModel::class.java]
+
 
         registerReceiver(songAddedToMusicPlayer, IntentFilter("songAdded"))
         registerReceiver(playerStateChanged, IntentFilter("playerStateChanged"))
@@ -61,28 +64,8 @@ class MainActivity : AppCompatActivity() {
 
         val tabs = arrayOf("Songs", "Folders", "Playlists")
 
-        getAudio().observe(this) {
-            audioViewModel.getAllSongs().observe(this) { songs ->
-                audioViewModel.getAllFolders().observe(this) { folders ->
-                    audioViewModel.getAllPlaylists().observe(this) { playlists ->
-                        vpAdapter =
-                            ViewPagerAdapter(folders, songs, playlists, audioViewModel, this)
-                        viewPager.adapter = vpAdapter
-                        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-                            tab.text = tabs[position]
-                        }.attach()
-
-                        startService(
-                            Intent(
-                                applicationContext,
-                                MusicPlayerService::class.java
-                            ).also {
-                                it.putExtra("order", "lastSong")
-                            })
-                    }
-                }
-            }
-        }
+        //Getting Audio from device:
+        getAudio(viewPager, tabs)
 
         bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
 
@@ -128,8 +111,10 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(p0: Context?, intent: Intent?) {
             val audio = intent?.getParcelableExtra<Audio>("addedAudio")
             if (audio != null) {
+                val artworkUri = Uri.parse("content://media/external/audio/albumart")
+                var artUri = ContentUris.withAppendedId(artworkUri, audio.albumId)
                 try {
-                    val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
+                    val inputStream = contentResolver.openInputStream(artUri)
                     bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
                     bottomControllerArt.clearColorFilter()
                 } catch (e: Exception) {
@@ -137,12 +122,11 @@ class MainActivity : AppCompatActivity() {
                     bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }
                 bottomControllerTitle.text = audio.name
-                audioViewModel.addUserPref(UserPref("userPref", audio.songId.toLong(), ""))
+                val que = intent.getStringExtra("que") ?: ""
+                audioViewModel.addUserPref(UserPref("userPref", audio.songId.toLong(), que))
+                vpAdapter.notifySongsAdapterWithPos(audio)
             }
-            val pos = intent?.getIntExtra("pos", -1)
-            if (pos != null && pos != -1) {
-                vpAdapter.notifySongsAdapterWithPos(pos)
-            }
+
         }
     }
 
@@ -163,8 +147,10 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(p0: Context?, intent: Intent?) {
             val audio = intent?.getParcelableExtra<Audio>("lastAudio")
             if (audio != null) {
+                val artworkUri = Uri.parse("content://media/external/audio/albumart")
+                var artUri = ContentUris.withAppendedId(artworkUri, audio.albumId)
                 try {
-                    val inputStream = contentResolver.openInputStream(Uri.parse(audio.art))
+                    val inputStream = contentResolver.openInputStream(artUri)
                     bottomControllerArt.setImageBitmap(BitmapFactory.decodeStream(inputStream))
                     bottomControllerArt.clearColorFilter()
                 } catch (e: Exception) {
@@ -172,76 +158,111 @@ class MainActivity : AppCompatActivity() {
                     bottomControllerArt.setColorFilter(resources.getColor(R.color.black))
                 }
                 bottomControllerTitle.text = audio.name
-            }
-            val pos = intent?.getIntExtra("pos", -1)
-            if (pos != null && pos != -1) {
-                vpAdapter.notifySongsAdapterWithPos(pos)
+                vpAdapter.notifySongsAdapterWithPos(audio)
             }
         }
     }
 
     private val noAudio: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, p1: Intent?) {
-            audioViewModel.getUserPref().observe(this@MainActivity) { userPref ->
-                if (userPref != null) {
-                    audioViewModel.getSongs(mutableListOf(userPref.last_played!!))
-                        .observe(this@MainActivity) { songs ->
+            CoroutineScope(Dispatchers.Default).launch {
+                audioViewModel.getUserPref().collect { userPref ->
+                    if (userPref != null) {
+                        audioViewModel.getSong(userPref.last_played!!)
+                            .collect { song ->
+                                if (song != null) {
+                                    startService(
+                                        Intent(
+                                            applicationContext,
+                                            MusicPlayerService::class.java
+                                        ).also {
+                                            it.putExtra("lastAudio", song)
+                                            runBlocking {
+                                                audioViewModel.getSongs(getIdsFromString(userPref.last_quee))
+                                                    .collect { songs ->
+                                                        if (songs.isNotEmpty()) {
+                                                            it.putExtra("quee",Songs(songs))
+                                                        }
+                                                    }
+                                            }
+                                        })
+                                }
+                            }
+                    } else {
+                        audioViewModel.getAllSongs().collect { songs ->
                             if (songs.isNotEmpty()) {
-                                Toast.makeText(
-                                    applicationContext,
-                                    "${songs[0]}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
                                 startService(
                                     Intent(
                                         applicationContext,
                                         MusicPlayerService::class.java
                                     ).also {
                                         it.putExtra("lastAudio", songs[0])
+                                        it.putExtra("quee", Songs(songs))
                                     })
                             }
                         }
+                    }
                 }
             }
         }
     }
 
-    private fun getAudio(): LiveData<Boolean> {
-        var result = MutableLiveData<Boolean>()
-        audioViewModel.getAllSongs().observe(this) { songs ->
-            if (songs.isEmpty()) {
+    private fun getIdsFromString(string: String) =
+        string.split(",").map { s -> s.toLong() } as MutableList<Long>
+
+
+    private fun getAudio(viewPager: ViewPager2, tabs: Array<String>) {
+        CoroutineScope(Dispatchers.Default).launch {
+            Log.e(TAG, "getting audios...")
+            var songs = mutableListOf<Audio>()
+            var folders = mutableListOf<AudioFolder>()
+            var playlists = mutableListOf<PlayList>()
+
+            //checking if the app is scanning for the first time
+            runBlocking {
+                audioViewModel.getUserPref().collect {
+                    if (it == null) {
+                        firstTime = true
+                    }
+                }
+            }
+
+            runBlocking {
                 loadSongs()
-                createSongFolders().observe(this) {
-                    result.postValue(true)
-                }
             }
-            result.postValue(true)
-        }
-        return result
-    }
 
-    private fun createSongFolders(): LiveData<Boolean> {
-        val result = MutableLiveData<Boolean>()
-        audioViewModel.getAllSongs().observe(this) { songs ->
-            val songFolders = mutableMapOf<String, MutableList<Long>>()
-            for (song in songs) {
-                val folder = song.path.split("/")[song.path.split("/").size - 2]
-                if (songFolders.keys.contains(folder)) {
-                    songFolders[folder]!!.add(song.songId.toLong())
-                } else {
-                    songFolders[folder] = mutableListOf()
-                    songFolders[folder]!!.add(song.songId.toLong())
-                }
+            audioViewModel.getAllSongs().collect {
+                songs = it
             }
-            for (key in songFolders.keys) {
-                if (songFolders[key] != null) {
-                    val folder = AudioFolder(key, songFolders[key]!!)
-                    audioViewModel.addFolder(folder)
-                }
+            audioViewModel.getAllFolders().collect {
+                folders = it
             }
-            result.postValue(true)
+            audioViewModel.getAllPlaylists().collect {
+                playlists = it
+            }
+            Log.e(TAG, "finished getting audios")
+            Log.e(TAG, "got list of audios with size of ${songs.size}")
+            Log.e(TAG, "got list of folders with size of ${folders.size}")
+            Log.e(TAG, "got list of playlists with size of ${playlists.size}")
+
+            vpAdapter =
+                ViewPagerAdapter(folders, songs, playlists, audioViewModel, this@MainActivity)
+
+            CoroutineScope(Dispatchers.Main).launch {
+                viewPager.adapter = vpAdapter
+                TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+                    tab.text = tabs[position]
+                }.attach()
+
+                startService(
+                    Intent(
+                        applicationContext,
+                        MusicPlayerService::class.java
+                    ).also {
+                        it.putExtra("order", "lastSong")
+                    })
+            }
         }
-        return result
     }
 
     private fun loadSongs() {
@@ -253,7 +274,7 @@ class MainActivity : AppCompatActivity() {
             MediaStore.Audio.Media.ALBUM_ID
         )
 
-        val sort = "${MediaStore.Audio.Media.DATE_MODIFIED} ASC"
+        val sort = "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
 
         applicationContext.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -272,17 +293,43 @@ class MainActivity : AppCompatActivity() {
                 val albumID =
                     cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID))
 
-                val artworkUri = Uri.parse("content://media/external/audio/albumart")
-                var art = ContentUris.withAppendedId(artworkUri, albumID)
-
                 val ext = data.split(".").last()
+                val folderName = getFolderName(data)
                 if (arrayOf("mp3", "m4a", "wav").contains(ext)) {
-                    val audioFile = Audio(0, name, duration, art.toString(), data)
-                    audioViewModel.addAudio(audioFile)
+                    val audioFile = Audio(0, name, duration, albumID, data)
+                    runBlocking {
+                        var audioFileId: Long = 0
+                        audioViewModel.getSong(data).collect { audio ->
+                            if (audio == null) {
+                                runBlocking {
+                                    audioViewModel.addAudio(audioFile).collect { id ->
+                                        audioFileId = id
+                                    }
+                                }
+                                runBlocking {
+                                    audioViewModel.getFolder(folderName).collect { folder ->
+                                        if (folder == null) {
+                                            val newFolder =
+                                                AudioFolder(folderName, mutableListOf(audioFileId))
+                                            audioViewModel.addFolder(newFolder)
+                                        } else {
+                                            folder.audioFileIds.add(audioFileId)
+                                            audioViewModel.addFolder(folder)
+                                            if (!firstTime) {
+                                                TODO("Deal with shown new tag on the folders with new songs added to them")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+
+    private fun getFolderName(path: String) = path.split("/")[path.split("/").size - 2]
 
 
 }
