@@ -1,6 +1,7 @@
 package com.blackdiamond.musicplayer.services
 
 import android.app.PendingIntent
+import android.app.PendingIntent.FLAG_MUTABLE
 import android.app.Service
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -11,7 +12,6 @@ import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import android.util.Log
 import android.view.KeyEvent
 import android.view.KeyEvent.*
 import androidx.core.app.NotificationCompat
@@ -22,16 +22,15 @@ import com.blackdiamond.musicplayer.activities.MainActivity
 import com.blackdiamond.musicplayer.database.AudioDao
 import com.blackdiamond.musicplayer.database.AudioDataBase
 import com.blackdiamond.musicplayer.dataclasses.Audio
-import com.blackdiamond.musicplayer.dataclasses.UserPref
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
+import com.blackdiamond.musicplayer.dataclasses.Songs
 
 class MusicPlayerService : Service() {
 
     private var player = MediaPlayer()
     private var audio: Audio? = null
     private var _audio: Audio? = null
+    private var que: MutableList<Audio>? = null
+    private var last_pos: Int = -1
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var dao: AudioDao
 
@@ -53,16 +52,20 @@ class MusicPlayerService : Service() {
 
                 if (keyEvent != null) {
                     if (keyEvent.action == ACTION_UP) {
-                        when (keyEvent.keyCode) {
-                            KEYCODE_MEDIA_PLAY_PAUSE -> {
-                                togglePlay()
-                            }
-                            KEYCODE_MEDIA_NEXT -> {
-
-                            }
-                            KEYCODE_MEDIA_PLAY -> {
-
-                            }
+                        if (keyEvent.keyCode == KEYCODE_MEDIA_PREVIOUS) {
+                            prev()
+                        }
+                        if (keyEvent.keyCode == KEYCODE_MEDIA_NEXT) {
+                            skip()
+                        }
+                        if (keyEvent.keyCode == KEYCODE_MEDIA_PLAY_PAUSE) {
+                            togglePlay()
+                        }
+                        if (keyEvent.keyCode == KEYCODE_MEDIA_PAUSE) {
+                            togglePlay()
+                        }
+                        if (keyEvent.keyCode == KEYCODE_MEDIA_PLAY) {
+                            togglePlay()
                         }
                     }
                 }
@@ -86,7 +89,7 @@ class MusicPlayerService : Service() {
                 "lastSong" -> {
                     if (_audio != null) {
                         lastAudio()
-                    }else{
+                    } else {
                         noAudio()
                     }
                 }
@@ -95,26 +98,18 @@ class MusicPlayerService : Service() {
                     stopSelf()
                     onDestroy()
                 }
+                "skip" -> {
+                    skip()
+                }
+                "prev" -> {
+                    prev()
+                }
             }
         }
         audio = intent?.getParcelableExtra("currentAudio") as? Audio
         if (audio != null) {
-            if (player.isPlaying) player.stop()
-            songAdded()
-            player.reset()
-            player.setDataSource(this, Uri.parse(audio!!.path))
-            player.prepare()
-            player.start()
-            Thread {
-                while (player.isPlaying) {
-                    playing()
-                    Thread.sleep(1000)
-                }
-            }.start()
-            player.setOnCompletionListener {
-                stopped()
-            }
-            _audio = audio
+            last_pos = que?.indexOf(audio!!) ?: -1
+            changeAudio()
         }
         audio = intent?.getParcelableExtra("lastAudio") as? Audio
         if (audio != null) {
@@ -124,10 +119,62 @@ class MusicPlayerService : Service() {
             player.setDataSource(this, Uri.parse(audio!!.path))
             player.prepare()
         }
+        val quee = intent?.getParcelableExtra<Songs>("quee")
+        if (quee != null) {
+            que = quee.songs
+        }
+        val pos = intent?.getIntExtra("pos", -1)!!
+        if (pos != -1){
+            last_pos = pos
+        }
         return START_STICKY
 
     }
 
+    private fun skip(){
+        if (que != null) {
+            if (last_pos < que?.size!! - 2) {
+                audio = que?.get(last_pos + 1)
+                if (audio != null) {
+                    last_pos += 1
+                    _audio = audio
+                    changeAudio()
+                }
+            }
+        }
+    }
+
+    private fun prev(){
+        if (que != null) {
+            if (last_pos > 0) {
+                audio = que?.get(last_pos - 1)
+                if (audio != null) {
+                    last_pos -= 1
+                    _audio = audio
+                    changeAudio()
+                }
+            }
+        }
+    }
+
+    private fun changeAudio() {
+        if (player.isPlaying) player.stop()
+        songAdded()
+        player.reset()
+        player.setDataSource(this, Uri.parse(audio!!.path))
+        player.prepare()
+        player.start()
+        Thread {
+            while (player.isPlaying) {
+                playing()
+                Thread.sleep(1000)
+            }
+        }.start()
+        player.setOnCompletionListener {
+            stopped()
+        }
+        _audio = audio
+    }
 
     private fun togglePlay() {
         if (player.isPlaying) {
@@ -161,6 +208,7 @@ class MusicPlayerService : Service() {
     private fun songAdded() {
         sendBroadcast(Intent("songAdded").also {
             it.putExtra("addedAudio", audio)
+            it.putExtra("pos",last_pos)
         })
         makeNotification()
     }
@@ -168,6 +216,7 @@ class MusicPlayerService : Service() {
     private fun lastAudio() {
         sendBroadcast(Intent("lastAudio").also {
             it.putExtra("lastAudio", _audio)
+            it.putExtra("pos",last_pos)
         })
     }
 
@@ -179,21 +228,35 @@ class MusicPlayerService : Service() {
 
         val openApp = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java), 0
+            Intent(this, MainActivity::class.java), FLAG_MUTABLE
         )
 
         val togglePlay = PendingIntent.getService(
             this, 0,
             Intent(this, MusicPlayerService::class.java).also {
                 it.putExtra("order", "pause")
-            }, 0
+            }, FLAG_MUTABLE
         )
 
         val exit = PendingIntent.getService(
             this, 1,
             Intent(this, MusicPlayerService::class.java).also {
                 it.putExtra("order", "close")
-            }, 0
+            }, FLAG_MUTABLE
+        )
+
+        val skip = PendingIntent.getService(
+            this, 2,
+            Intent(this, MusicPlayerService::class.java).also {
+                it.putExtra("order", "skip")
+            }, FLAG_MUTABLE
+        )
+
+        val prev = PendingIntent.getService(
+            this, 3,
+            Intent(this, MusicPlayerService::class.java).also {
+                it.putExtra("order", "prev")
+            }, FLAG_MUTABLE
         )
 
         val image = try {
@@ -232,9 +295,9 @@ class MusicPlayerService : Service() {
             .setContentIntent(openApp)
             .setOnlyAlertOnce(true)
             .addAction(R.drawable.ic_fav_out_line, "fav", null)
-            .addAction(R.drawable.ic_prev, "previous", null)
+            .addAction(R.drawable.ic_prev, "previous", prev)
             .addAction(playState, "play", togglePlay)
-            .addAction(R.drawable.ic_skip, "skip", null)
+            .addAction(R.drawable.ic_skip, "skip", skip)
             .addAction(R.drawable.ic_close, "exit", exit)
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()

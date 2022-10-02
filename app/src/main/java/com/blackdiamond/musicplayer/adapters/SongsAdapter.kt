@@ -9,13 +9,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.blackdiamond.musicplayer.R
 import com.blackdiamond.musicplayer.dataclasses.Audio
+import com.blackdiamond.musicplayer.dataclasses.Songs
 import com.blackdiamond.musicplayer.services.MusicPlayerService
 
-class SongsAdapter(private val songs: MutableList<Audio>) :
+class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapter) :
     RecyclerView.Adapter<SongsAdapter.SongsViewHolder>() {
 
     var lastClicked = -1
@@ -76,6 +78,9 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
             if (song.songId != -1) {
                 val i = Intent(holder.itemView.context, MusicPlayerService::class.java)
                 i.putExtra("currentAudio", song)
+                val list = Songs(songs)
+                i.putExtra("quee", list)
+                i.putExtra("pos", position)
                 holder.itemView.context.startService(i)
                 title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
                 duration.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_200))
@@ -86,6 +91,13 @@ class SongsAdapter(private val songs: MutableList<Audio>) :
             }
         }
 
+    }
+
+    fun songChanged(pos: Int) {
+        val last = lastClicked
+        lastClicked = pos
+        notifyItemChanged(pos)
+        notifyItemChanged(last)
     }
 
     override fun getItemCount(): Int {

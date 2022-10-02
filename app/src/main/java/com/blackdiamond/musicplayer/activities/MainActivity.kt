@@ -72,9 +72,13 @@ class MainActivity : AppCompatActivity() {
                             tab.text = tabs[position]
                         }.attach()
 
-                        startService(Intent(applicationContext, MusicPlayerService::class.java).also {
-                            it.putExtra("order", "lastSong")
-                        })
+                        startService(
+                            Intent(
+                                applicationContext,
+                                MusicPlayerService::class.java
+                            ).also {
+                                it.putExtra("order", "lastSong")
+                            })
                     }
                 }
             }
@@ -85,6 +89,18 @@ class MainActivity : AppCompatActivity() {
         bottomControllerPlay.setOnClickListener {
             startService(Intent(applicationContext, MusicPlayerService::class.java).also {
                 it.putExtra("order", "pause")
+            })
+        }
+
+        bottomControllerSkip.setOnClickListener {
+            startService(Intent(applicationContext, MusicPlayerService::class.java).also {
+                it.putExtra("order", "skip")
+            })
+        }
+
+        bottomControllerPrev.setOnClickListener {
+            startService(Intent(applicationContext, MusicPlayerService::class.java).also {
+                it.putExtra("order", "prev")
             })
         }
 
@@ -100,9 +116,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (folderView.isBlank() || folderView == "folders") super.onBackPressed()
-        vpAdapter.changeFolderView()
-        tabLayout.selectTab(tabLayout.getTabAt(1))
+        if (folderView.isBlank() || folderView == "folders") {
+            super.onBackPressed()
+        } else {
+            vpAdapter.changeFolderView()
+            tabLayout.selectTab(tabLayout.getTabAt(1))
+        }
     }
 
     private val songAddedToMusicPlayer: BroadcastReceiver = object : BroadcastReceiver() {
@@ -119,6 +138,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 bottomControllerTitle.text = audio.name
                 audioViewModel.addUserPref(UserPref("userPref", audio.songId.toLong(), ""))
+            }
+            val pos = intent?.getIntExtra("pos", -1)
+            if (pos != null && pos != -1) {
+                vpAdapter.notifySongsAdapterWithPos(pos)
             }
         }
     }
@@ -150,6 +173,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 bottomControllerTitle.text = audio.name
             }
+            val pos = intent?.getIntExtra("pos", -1)
+            if (pos != null && pos != -1) {
+                vpAdapter.notifySongsAdapterWithPos(pos)
+            }
         }
     }
 
@@ -165,9 +192,13 @@ class MainActivity : AppCompatActivity() {
                                     "${songs[0]}",
                                     Toast.LENGTH_SHORT
                                 ).show()
-                                startService(Intent(applicationContext, MusicPlayerService::class.java).also {
-                                    it.putExtra("lastAudio", songs[0])
-                                })
+                                startService(
+                                    Intent(
+                                        applicationContext,
+                                        MusicPlayerService::class.java
+                                    ).also {
+                                        it.putExtra("lastAudio", songs[0])
+                                    })
                             }
                         }
                 }
@@ -179,7 +210,7 @@ class MainActivity : AppCompatActivity() {
         var result = MutableLiveData<Boolean>()
         audioViewModel.getAllSongs().observe(this) { songs ->
             if (songs.isEmpty()) {
-                loadSongsForTheFirstTime()
+                loadSongs()
                 createSongFolders().observe(this) {
                     result.postValue(true)
                 }
@@ -213,7 +244,7 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
-    private fun loadSongsForTheFirstTime() {
+    private fun loadSongs() {
 
         val projection = arrayOf(
             MediaStore.Audio.Media.TITLE,
@@ -222,7 +253,7 @@ class MainActivity : AppCompatActivity() {
             MediaStore.Audio.Media.ALBUM_ID
         )
 
-        val sort = "${MediaStore.Audio.Media.TITLE} ASC"
+        val sort = "${MediaStore.Audio.Media.DATE_MODIFIED} ASC"
 
         applicationContext.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,

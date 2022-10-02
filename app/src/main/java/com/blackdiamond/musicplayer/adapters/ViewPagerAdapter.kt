@@ -14,7 +14,7 @@ import com.blackdiamond.musicplayer.dataclasses.PlayList
 
 class ViewPagerAdapter(
     var folders: MutableList<AudioFolder>,
-    songs: MutableList<Audio>,
+    var songs: MutableList<Audio>,
     var playlists: MutableList<PlayList>?,
     var audioViewModel: AudioViewModel,
     var parent: MainActivity
@@ -23,7 +23,7 @@ class ViewPagerAdapter(
     var folderSongs = mutableListOf<Audio>()
     var folderView  = "folders"
 
-    val songsAdapter = SongsAdapter(songs)
+    var songsAdapter = SongsAdapter(songs,this)
     val foldersAdapter = FolderAdapter(folders, this, audioViewModel)
     var playListAdapter = PlayListAdapter(playlists!!)
 
@@ -43,11 +43,13 @@ class ViewPagerAdapter(
         val recyclerView = holder.itemView.findViewById<RecyclerView>(R.id.rvPages)
         when (position) {
             0 -> {
+                songsAdapter = SongsAdapter(songs,this)
                 recyclerView.adapter = songsAdapter
             }
             1 -> {
                 if (folderView == "folderSongs") {
-                    recyclerView.adapter = SongsAdapter(folderSongs)
+                    songsAdapter = SongsAdapter(folderSongs,this)
+                    recyclerView.adapter = songsAdapter
                 } else {
                     recyclerView.adapter = foldersAdapter
                 }
@@ -58,6 +60,10 @@ class ViewPagerAdapter(
         }
         recyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
 
+    }
+
+    fun notifySongsAdapterWithPos(pos: Int){
+        songsAdapter.songChanged(pos)
     }
 
     fun changeFolderView(_folderSongs: MutableList<Audio> = mutableListOf(),folderName:String = "") {
