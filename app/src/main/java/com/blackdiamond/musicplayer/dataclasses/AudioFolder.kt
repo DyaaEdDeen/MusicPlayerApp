@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 class AudioFolder(
     @PrimaryKey(autoGenerate = false)
     val folderName: String,
+    val hasNew: Boolean = false,
     val audioFileIds: MutableList<Long>
 ){
     override fun toString(): String {

@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    android:id="@+id/folderView"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/folderView"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginBottom="4dp"
     android:padding="8dp"
-    app:elevation="4dp"
-    android:layout_marginBottom="4dp">
+    app:elevation="4dp">
 
     <ImageView
         android:id="@+id/folderArt"
@@ -16,10 +14,23 @@
         android:layout_height="64dp"
         android:layout_marginEnd="400dp"
         android:scaleType="centerCrop"
-        app:tint="@color/purple_700"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_folder" />
+        app:srcCompat="@drawable/ic_folder"
+        app:tint="@color/purple_700" />
+
+    <ImageView
+        android:id="@+id/folderNewTag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="6dp"
+        android:layout_marginVertical="9dp"
+        android:src="@drawable/ic_new"
+        android:visibility="invisible"
+        app:layout_constraintStart_toStartOf="@+id/folderArt"
+        app:layout_constraintTop_toTopOf="@+id/folderArt">
+
+    </ImageView>
 
     <TextView
         android:id="@+id/folderName"
