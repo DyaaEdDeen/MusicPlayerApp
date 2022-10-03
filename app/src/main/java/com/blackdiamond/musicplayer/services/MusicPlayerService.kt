@@ -13,7 +13,6 @@ import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import android.util.Log
 import android.view.KeyEvent
 import android.view.KeyEvent.*
 import androidx.core.app.NotificationCompat
@@ -37,6 +36,8 @@ class MusicPlayerService : Service() {
     private var last_pos: Int = -1
     private lateinit var mediaSession: MediaSessionCompat
     private lateinit var dao: AudioDao
+
+    private var madeNotificationForPlaying = false
 
     companion object {
         val SERVICE_ID = 9
@@ -108,6 +109,9 @@ class MusicPlayerService : Service() {
                 "prev" -> {
                     prev()
                 }
+                "fav" -> {
+                    fav()
+                }
             }
         }
         audio = intent?.getParcelableExtra("currentAudio") as? Audio
@@ -115,9 +119,7 @@ class MusicPlayerService : Service() {
             val quee = intent?.getParcelableExtra<Songs>("quee")
             if (quee != null) {
                 que = quee.songs
-                last_pos = que.indexOf(que.filter { song-> song.songId == audio?.songId }[0])
-                val isAudioExt = que.contains(audio)
-                Log.e(TAG, "(lastAudio) got que : ${que.size} | last pos : $last_pos | audio : $audio | audio in que : $isAudioExt" )
+                last_pos = que.indexOf(que.filter { song -> song.songId == audio?.songId }[0])
             }
             changeAudio()
         }
@@ -127,9 +129,7 @@ class MusicPlayerService : Service() {
             val quee = intent?.getParcelableExtra<Songs>("quee")
             if (quee != null) {
                 que = quee.songs
-                last_pos = que.indexOf(que.filter { song-> song.songId == audio?.songId }[0])
-                val isAudioExt = que.contains(audio)
-                Log.e(TAG, "(lastAudio) got que : ${que.size} | last pos : $last_pos | audio in que : $isAudioExt" )
+                last_pos = que.indexOf(que.filter { song -> song.songId == audio?.songId }[0])
             }
             lastAudio()
             player.reset()
@@ -159,6 +159,12 @@ class MusicPlayerService : Service() {
                 _audio = audio
                 changeAudio()
             }
+        }
+    }
+
+    private fun fav() {
+        _audio?.let {
+            toggleFav(it)
         }
     }
 
@@ -201,7 +207,10 @@ class MusicPlayerService : Service() {
         sendBroadcast(Intent("playerStateChanged").also {
             it.putExtra("state", "playing")
         })
-        makeNotification(R.drawable.ic_pause)
+        if (!madeNotificationForPlaying) {
+            makeNotification(R.drawable.ic_pause)
+            madeNotificationForPlaying = true
+        }
     }
 
     private fun stopped() {
@@ -209,6 +218,7 @@ class MusicPlayerService : Service() {
             it.putExtra("state", "paused")
         })
         makeNotification(R.drawable.ic_play)
+        madeNotificationForPlaying = false
     }
 
     private fun songAdded() {
@@ -227,6 +237,14 @@ class MusicPlayerService : Service() {
 
     private fun noAudio() {
         sendBroadcast(Intent("noAudio"))
+    }
+
+    private fun toggleFav(audio: Audio) {
+        audio.isFav = !audio.isFav
+        sendBroadcast(Intent("toggleFav").also {
+            it.putExtra("audio", audio)
+        })
+        makeNotification()
     }
 
     private fun makeNotification(playState: Int = R.drawable.ic_pause) {
@@ -264,6 +282,13 @@ class MusicPlayerService : Service() {
             }, FLAG_MUTABLE
         )
 
+        val fav = PendingIntent.getService(
+            this, 4,
+            Intent(this, MusicPlayerService::class.java).also {
+                it.putExtra("order", "fav")
+            }, FLAG_MUTABLE
+        )
+
         val artworkUri = Uri.parse("content://media/external/audio/albumart")
         var artUri = audio?.albumId?.let { ContentUris.withAppendedId(artworkUri, it) }
 
@@ -274,6 +299,11 @@ class MusicPlayerService : Service() {
             BitmapFactory.decodeResource(resources, R.drawable.ic_music)
         }
 
+        val favIcon = if (_audio?.isFav == true) {
+            R.drawable.ic_fav
+        } else {
+            R.drawable.ic_fav_out_line
+        }
 
         mediaSession.setMetadata(
             MediaMetadataCompat.Builder()
@@ -303,7 +333,7 @@ class MusicPlayerService : Service() {
             .setLargeIcon(image)
             .setContentIntent(openApp)
             .setOnlyAlertOnce(true)
-            .addAction(R.drawable.ic_fav_out_line, "fav", null)
+            .addAction(favIcon, "fav", fav)
             .addAction(R.drawable.ic_prev, "previous", prev)
             .addAction(playState, "play", togglePlay)
             .addAction(R.drawable.ic_skip, "skip", skip)

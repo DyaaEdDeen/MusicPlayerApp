@@ -15,7 +15,7 @@ class Audio(
     val duration: Int,
     val albumId: Long,
     val path: String,
-    val isFav: Boolean = false
+    var isFav: Boolean
 ) : Parcelable {
     override fun toString(): String {
         return "[$name,$duration,$albumId,$path,$isFav]"

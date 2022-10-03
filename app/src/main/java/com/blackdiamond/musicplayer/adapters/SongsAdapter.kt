@@ -5,9 +5,9 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.View.GONE
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
@@ -18,18 +18,20 @@ import com.blackdiamond.musicplayer.R
 import com.blackdiamond.musicplayer.dataclasses.Audio
 import com.blackdiamond.musicplayer.dataclasses.Songs
 import com.blackdiamond.musicplayer.services.MusicPlayerService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapter) :
+class SongsAdapter(private val songs: MutableList<Audio>, val parent: ViewPagerAdapter) :
     RecyclerView.Adapter<SongsAdapter.SongsViewHolder>() {
 
     val TAG = SongsAdapter::class.java.simpleName
     private var lastClicked = -1
 
     init {
-        val dummy = Audio(-1, "", 0, 0, "")
-        if (songs.none { audio -> audio.songId == -1 }){
+        val dummy = Audio(-1, "", 0, 0, "", false)
+        if (songs.none { audio -> audio.songId == -1 }) {
             songs.add(dummy)
-            Log.e(TAG, "added dummy")
         }
     }
 
@@ -52,8 +54,57 @@ class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapt
         val title = holder.itemView.findViewById<TextView>(R.id.audioTitle)
         val art = holder.itemView.findViewById<ImageView>(R.id.audioArt)
         val duration = holder.itemView.findViewById<TextView>(R.id.audioDuration)
+        val fav = holder.itemView.findViewById<ImageView>(R.id.audioFav)
+        val more = holder.itemView.findViewById<ImageView>(R.id.audioMore)
 
-        title.text = song.name
+        if (songs[holder.adapterPosition].songId == -1) {
+            fav.visibility = GONE
+            more.visibility = GONE
+        }
+
+        title.text = songs[holder.adapterPosition].name
+
+
+        CoroutineScope(Dispatchers.Default).launch {
+
+            var isFav = songs[holder.adapterPosition].isFav
+            parent.audioViewModel.getSong(songs[holder.adapterPosition].songId.toLong()).collect {
+                isFav = it?.isFav ?: false
+            }
+
+            val fav_icon = if (isFav) {
+                R.drawable.ic_fav
+            } else {
+                R.drawable.ic_fav_out_line
+            }
+            fav.setImageResource(fav_icon)
+            parent.updateSongs()
+        }
+
+
+        fav.setOnClickListener {
+            if (songs[holder.adapterPosition].songId != -1) {
+                songs[holder.adapterPosition].isFav = !songs[holder.adapterPosition].isFav
+                val fav_icon = if (songs[holder.adapterPosition].isFav) {
+                    R.drawable.ic_fav
+                } else {
+                    R.drawable.ic_fav_out_line
+                }
+                fav.setImageResource(fav_icon)
+                holder.itemView.context.startService(
+                    Intent(holder.itemView.context,MusicPlayerService::class.java).also {
+                    it.putExtra("order","fav")
+                })
+            }
+
+        }
+
+        more.setOnClickListener {
+            if (songs[holder.adapterPosition].songId != -1) {
+                Toast.makeText(holder.itemView.context, "Clicked On More", Toast.LENGTH_SHORT)
+                    .show()
+            }
+        }
 
         if (lastClicked == holder.adapterPosition) {
             title.setTextColor(holder.itemView.context.resources.getColor(R.color.teal_700))
@@ -88,7 +139,7 @@ class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapt
             if (song.songId != -1) {
                 val i = Intent(holder.itemView.context, MusicPlayerService::class.java)
                 i.putExtra("currentAudio", song)
-                val list = Songs(songs.filter { audio-> audio.songId != -1 } as MutableList<Audio>)
+                val list = Songs(songs.filter { audio -> audio.songId != -1 } as MutableList<Audio>)
                 i.putExtra("quee", list)
                 i.putExtra("pos", holder.adapterPosition)
                 holder.itemView.context.startService(i)
@@ -104,11 +155,13 @@ class SongsAdapter(private val songs: MutableList<Audio>, parent: ViewPagerAdapt
     }
 
     fun songChanged(audio: Audio) {
-        val last = lastClicked
-        val pos = songs.indexOf(songs.filter { song-> song.songId == audio.songId }[0])
-        lastClicked = pos
-        notifyItemChanged(pos)
-        notifyItemChanged(last)
+        if (songs.isNotEmpty() && songs.any { song -> song.songId == audio.songId }) {
+            val last = lastClicked
+            val pos = songs.indexOf(songs.filter { song -> song.songId == audio.songId }[0])
+            lastClicked = pos
+            notifyItemChanged(pos)
+            notifyItemChanged(last)
+        }
     }
 
     override fun getItemCount(): Int {

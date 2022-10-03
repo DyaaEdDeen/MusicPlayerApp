@@ -1,5 +1,6 @@
 package com.blackdiamond.musicplayer.adapters
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,17 +19,21 @@ import kotlinx.coroutines.launch
 class ViewPagerAdapter(
     var folders: MutableList<AudioFolder>,
     var songs: MutableList<Audio>,
-    var playlists: MutableList<PlayList>?,
+    var playlists: MutableList<PlayList>,
     var audioViewModel: AudioViewModel,
     var parent: MainActivity
 ) : RecyclerView.Adapter<ViewPagerAdapter.PagesViewHolder>() {
 
     var folderSongs = mutableListOf<Audio>()
+    var plistSongs = mutableListOf<Audio>()
     var folderView  = "folders"
+    var plistView = "plists"
+    var last_pos = 0
+    val TAG = ViewPagerAdapter::class.java.simpleName
 
     var songsAdapter = SongsAdapter(songs,this)
-    val foldersAdapter = FolderAdapter(folders, this, audioViewModel)
-    var playListAdapter = PlayListAdapter(playlists!!)
+    val foldersAdapter = FolderAdapter(folders, this)
+    var playListAdapter = PlayListAdapter(playlists,this)
 
     class PagesViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
 
@@ -58,7 +63,12 @@ class ViewPagerAdapter(
                 }
             }
             2 -> {
-                recyclerView.adapter = playListAdapter
+                if (plistView == "plistSongs") {
+                    songsAdapter = SongsAdapter(plistSongs,this)
+                    recyclerView.adapter = songsAdapter
+                } else {
+                    recyclerView.adapter = playListAdapter
+                }
             }
         }
         recyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
@@ -76,13 +86,36 @@ class ViewPagerAdapter(
         }else{
             "folderSongs"
         }
+        Log.e(TAG, "state changed : $folderView")
         CoroutineScope(Dispatchers.Main).launch {
             notifyItemChanged(1)
+            parent.setFolderTabView(folderView,folderName)
         }
-        parent.setFolderTabView(folderView,folderName)
+    }
+
+    fun changePlistView(_plistSongs: MutableList<Audio> = mutableListOf(), plistName:String = "") {
+        plistSongs = _plistSongs
+        plistView = if (plistView.isEmpty()){
+            "plist"
+        }else{
+            "plistSongs"
+        }
+        CoroutineScope(Dispatchers.Main).launch {
+            notifyItemChanged(2)
+            parent.setPlistTabView(plistView,plistName)
+        }
     }
 
     override fun getItemCount(): Int {
         return 3
+    }
+
+    fun updateSongs() {
+        if (last_pos == 0 || last_pos == -1){
+            return
+        }
+        CoroutineScope(Dispatchers.Main).launch {
+            notifyItemChanged(0)
+        }
     }
 }

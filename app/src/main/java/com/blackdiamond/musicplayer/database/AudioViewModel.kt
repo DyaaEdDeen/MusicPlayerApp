@@ -29,6 +29,18 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateSong(audio: Audio){
+        viewModelScope.launch(Dispatchers.Default) {
+            dao.updateSong(audio)
+        }
+    }
+
+    fun updateFolder(folder: AudioFolder){
+        viewModelScope.launch(Dispatchers.Default) {
+            dao.updateFolder(folder)
+        }
+    }
+
     fun addFolder(folder: AudioFolder) {
         viewModelScope.launch(Dispatchers.Default) {
             dao.addFolder(folder)
@@ -99,6 +111,17 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     fun getAllPlaylists(): Flow<MutableList<PlayList>> {
         return flow {
             emit(dao.getAllPlayLists())
+        }
+    }
+
+    fun addFavsToFavPlayList() {
+        CoroutineScope(Dispatchers.Default).launch{
+            var favs: MutableList<Audio>
+            runBlocking {
+                favs = dao.getFavs()
+            }
+            val favPlayList = PlayList("Favourites",favs.map { audio-> audio.songId.toLong() } as MutableList<Long>)
+            dao.addPlaylist(favPlayList)
         }
     }
 }

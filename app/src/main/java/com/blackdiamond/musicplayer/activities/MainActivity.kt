@@ -17,6 +17,7 @@ import com.blackdiamond.musicplayer.database.AudioViewModel
 import com.blackdiamond.musicplayer.dataclasses.*
 import com.blackdiamond.musicplayer.services.MusicPlayerService
 import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayout.OnTabSelectedListener
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,17 +29,20 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var audioViewModel: AudioViewModel
     lateinit var vpAdapter: ViewPagerAdapter
-    var firstTime = false
     val TAG = MainActivity::class.java.simpleName
 
     private lateinit var tabLayout: TabLayout
+    private lateinit var viewPager: ViewPager2
     private lateinit var bottomControllerArt: ImageView
     private lateinit var bottomControllerTitle: TextView
     private lateinit var bottomControllerPlay: ImageView
     private lateinit var bottomControllerSkip: ImageView
     private lateinit var bottomControllerPrev: ImageView
 
-    var folderView: String = ""
+    val tabs = arrayOf("Songs", "Folders", "Playlists")
+
+    var folderView: String = "folders"
+    var plistView: String = "plists"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,8 +55,9 @@ class MainActivity : AppCompatActivity() {
         registerReceiver(playerStateChanged, IntentFilter("playerStateChanged"))
         registerReceiver(getLastAudio, IntentFilter("lastAudio"))
         registerReceiver(noAudio, IntentFilter("noAudio"))
+        registerReceiver(toggleFav, IntentFilter("toggleFav"))
 
-        val viewPager = findViewById<ViewPager2>(R.id.viewPager)
+        viewPager = findViewById(R.id.viewPager)
         tabLayout = findViewById(R.id.tabLayout)
 
         bottomControllerArt = findViewById(R.id.currentAudioArt)
@@ -60,9 +65,6 @@ class MainActivity : AppCompatActivity() {
         bottomControllerPlay = findViewById(R.id.playAudio)
         bottomControllerSkip = findViewById(R.id.skipAudio)
         bottomControllerPrev = findViewById(R.id.prevAudio)
-
-
-        val tabs = arrayOf("Songs", "Folders", "Playlists")
 
         //Getting Audio from device:
         getAudio(viewPager, tabs)
@@ -95,6 +97,17 @@ class MainActivity : AppCompatActivity() {
             tabLayout.getTabAt(1)?.text = "FOLDERS"
         } else {
             tabLayout.getTabAt(1)?.text = folderName
+            folderView = folderName
+        }
+    }
+
+    fun setPlistTabView(state: String, plistName: String) {
+        plistView = state
+        if (plistView == "plist") {
+            tabLayout.getTabAt(2)?.text = "PLAYLISTS"
+        } else {
+            tabLayout.getTabAt(2)?.text = plistName
+            plistView = plistName
         }
     }
 
@@ -181,7 +194,7 @@ class MainActivity : AppCompatActivity() {
                                                 audioViewModel.getSongs(getIdsFromString(userPref.last_quee))
                                                     .collect { songs ->
                                                         if (songs.isNotEmpty()) {
-                                                            it.putExtra("quee",Songs(songs))
+                                                            it.putExtra("quee", Songs(songs))
                                                         }
                                                     }
                                             }
@@ -207,6 +220,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val toggleFav: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(p0: Context?, intent: Intent?) {
+            val audio = intent?.getParcelableExtra<Audio>("audio")
+            if (audio != null) {
+                audioViewModel.updateSong(audio)
+                audioViewModel.addFavsToFavPlayList()
+                vpAdapter.notifySongsAdapterWithPos(audio)
+                vpAdapter.notifyItemChanged(2)
+            }
+        }
+    }
+
     private fun getIdsFromString(string: String) =
         string.split(",").map { s -> s.toLong() } as MutableList<Long>
 
@@ -218,14 +243,6 @@ class MainActivity : AppCompatActivity() {
             var folders = mutableListOf<AudioFolder>()
             var playlists = mutableListOf<PlayList>()
 
-            //checking if the app is scanning for the first time
-            runBlocking {
-                audioViewModel.getUserPref().collect {
-                    if (it == null) {
-                        firstTime = true
-                    }
-                }
-            }
 
             runBlocking {
                 loadSongs()
@@ -248,20 +265,42 @@ class MainActivity : AppCompatActivity() {
             vpAdapter =
                 ViewPagerAdapter(folders, songs, playlists, audioViewModel, this@MainActivity)
 
-            CoroutineScope(Dispatchers.Main).launch {
+            runOnUiThread {
                 viewPager.adapter = vpAdapter
                 TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-                    tab.text = tabs[position]
+                    if (position != 1 || (position == 1 && folderView == "folders")) {
+                        tab.text = tabs[position]
+                    } else {
+                        tab.text = folderView
+                    }
+                    if (position != 2 || (position == 2 && plistView == "plists")) {
+                        tab.text = tabs[position]
+                    } else {
+                        tab.text = plistView
+                    }
                 }.attach()
 
-                startService(
-                    Intent(
-                        applicationContext,
-                        MusicPlayerService::class.java
-                    ).also {
-                        it.putExtra("order", "lastSong")
-                    })
+                tabLayout.addOnTabSelectedListener(object : OnTabSelectedListener {
+                    override fun onTabSelected(tab: TabLayout.Tab?) {
+                        vpAdapter.last_pos = tab?.position ?: -1
+                    }
+
+                    override fun onTabUnselected(tab: TabLayout.Tab?) {
+
+                    }
+
+                    override fun onTabReselected(tab: TabLayout.Tab?) {
+
+                    }
+                })
             }
+            startService(
+                Intent(
+                    applicationContext,
+                    MusicPlayerService::class.java
+                ).also {
+                    it.putExtra("order", "lastSong")
+                })
         }
     }
 
@@ -296,7 +335,7 @@ class MainActivity : AppCompatActivity() {
                 val ext = data.split(".").last()
                 val folderName = getFolderName(data)
                 if (arrayOf("mp3", "m4a", "wav").contains(ext)) {
-                    val audioFile = Audio(0, name, duration, albumID, data)
+                    val audioFile = Audio(0, name, duration, albumID, data, false)
                     runBlocking {
                         var audioFileId: Long = 0
                         audioViewModel.getSong(data).collect { audio ->
@@ -310,14 +349,16 @@ class MainActivity : AppCompatActivity() {
                                     audioViewModel.getFolder(folderName).collect { folder ->
                                         if (folder == null) {
                                             val newFolder =
-                                                AudioFolder(folderName, mutableListOf(audioFileId))
+                                                AudioFolder(
+                                                    folderName,
+                                                    true,
+                                                    mutableListOf(audioFileId)
+                                                )
                                             audioViewModel.addFolder(newFolder)
                                         } else {
                                             folder.audioFileIds.add(audioFileId)
+                                            folder.hasNew = true
                                             audioViewModel.addFolder(folder)
-                                            if (!firstTime) {
-                                                TODO("Deal with shown new tag on the folders with new songs added to them")
-                                            }
                                         }
                                     }
                                 }
