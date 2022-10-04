@@ -95,7 +95,6 @@ class MainActivity : AppCompatActivity() {
         folderView = state
         if (folderView == "folders") {
             tabLayout.getTabAt(1)?.text = "FOLDERS"
-            folderView = "folders"
         } else {
             tabLayout.getTabAt(1)?.text = folderName
             folderView = folderName
@@ -104,9 +103,8 @@ class MainActivity : AppCompatActivity() {
 
     fun setPlistTabView(state: String, plistName: String) {
         plistView = state
-        if (plistView == "plist") {
+        if (plistView == "plists") {
             tabLayout.getTabAt(2)?.text = "PLAYLISTS"
-            plistView = "plist"
         } else {
             tabLayout.getTabAt(2)?.text = plistName
             plistView = plistName
