@@ -38,6 +38,7 @@ class MusicPlayerService : Service() {
     private lateinit var dao: AudioDao
 
     private var madeNotificationForPlaying = false
+    private var lastPlayState = R.drawable.ic_play
 
     companion object {
         val SERVICE_ID = 9
@@ -116,6 +117,7 @@ class MusicPlayerService : Service() {
         }
         audio = intent?.getParcelableExtra("currentAudio") as? Audio
         if (audio != null) {
+            _audio = audio
             val quee = intent?.getParcelableExtra<Songs>("quee")
             if (quee != null) {
                 que = quee.songs
@@ -210,6 +212,7 @@ class MusicPlayerService : Service() {
         if (!madeNotificationForPlaying) {
             makeNotification(R.drawable.ic_pause)
             madeNotificationForPlaying = true
+            lastPlayState = R.drawable.ic_pause
         }
     }
 
@@ -219,6 +222,7 @@ class MusicPlayerService : Service() {
         })
         makeNotification(R.drawable.ic_play)
         madeNotificationForPlaying = false
+        lastPlayState = R.drawable.ic_play
     }
 
     private fun songAdded() {
@@ -247,7 +251,7 @@ class MusicPlayerService : Service() {
         makeNotification()
     }
 
-    private fun makeNotification(playState: Int = R.drawable.ic_pause) {
+    private fun makeNotification(playState: Int = lastPlayState) {
 
         val openApp = PendingIntent.getActivity(
             this, 0,

@@ -91,10 +91,7 @@ class SongsAdapter(private val songs: MutableList<Audio>, val parent: ViewPagerA
                     R.drawable.ic_fav_out_line
                 }
                 fav.setImageResource(fav_icon)
-                holder.itemView.context.startService(
-                    Intent(holder.itemView.context,MusicPlayerService::class.java).also {
-                    it.putExtra("order","fav")
-                })
+                parent.parent.toggleAudioFav(songs[holder.adapterPosition])
             }
 
         }
@@ -154,13 +151,16 @@ class SongsAdapter(private val songs: MutableList<Audio>, val parent: ViewPagerA
 
     }
 
-    fun songChanged(audio: Audio) {
-        if (songs.isNotEmpty() && songs.any { song -> song.songId == audio.songId }) {
+    fun songChanged(audio: Audio,selected:Boolean = true) {
+        if (songs.isNotEmpty() && songs.any { song -> song.songId == audio.songId } && selected) {
             val last = lastClicked
             val pos = songs.indexOf(songs.filter { song -> song.songId == audio.songId }[0])
             lastClicked = pos
             notifyItemChanged(pos)
             notifyItemChanged(last)
+        }else{
+            val pos = songs.indexOf(songs.filter { song -> song.songId == audio.songId }[0])
+            notifyItemChanged(pos)
         }
     }
 

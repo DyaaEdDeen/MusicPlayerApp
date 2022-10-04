@@ -21,6 +21,9 @@ interface AudioDao {
     @Update
     fun updateFolder(folder: AudioFolder)
 
+    @Update
+    fun updatePlayList(playList: PlayList)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun addPlaylist(playList: PlayList)
 

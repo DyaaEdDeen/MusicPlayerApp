@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
         folderView = state
         if (folderView == "folders") {
             tabLayout.getTabAt(1)?.text = "FOLDERS"
+            folderView = "folders"
         } else {
             tabLayout.getTabAt(1)?.text = folderName
             folderView = folderName
@@ -105,6 +106,7 @@ class MainActivity : AppCompatActivity() {
         plistView = state
         if (plistView == "plist") {
             tabLayout.getTabAt(2)?.text = "PLAYLISTS"
+            plistView = "plist"
         } else {
             tabLayout.getTabAt(2)?.text = plistName
             plistView = plistName
@@ -112,11 +114,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (folderView.isBlank() || folderView == "folders") {
+        if (plistView == "plists" || folderView == "folders") {
             super.onBackPressed()
         } else {
-            vpAdapter.changeFolderView()
-            tabLayout.selectTab(tabLayout.getTabAt(1))
+            if (plistView != "plists") {
+                vpAdapter.changePlistView()
+                tabLayout.selectTab(tabLayout.getTabAt(2))
+            }
+            if (folderView != "folders") {
+                vpAdapter.changeFolderView()
+                tabLayout.selectTab(tabLayout.getTabAt(1))
+            }
         }
     }
 
@@ -224,10 +232,19 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(p0: Context?, intent: Intent?) {
             val audio = intent?.getParcelableExtra<Audio>("audio")
             if (audio != null) {
-                audioViewModel.updateSong(audio)
-                audioViewModel.addFavsToFavPlayList()
-                vpAdapter.notifySongsAdapterWithPos(audio)
-                vpAdapter.notifyItemChanged(2)
+                toggleAudioFav(audio)
+            }
+        }
+    }
+
+    fun toggleAudioFav(audio: Audio) {
+        audioViewModel.updateSong(audio)
+        CoroutineScope(Dispatchers.Default).launch {
+            audioViewModel.addFavsToFavPlayList(audio).collect {
+                vpAdapter.notifySongsAdapterWithPos(audio, false)
+                runOnUiThread {
+                    vpAdapter.notifyItemChanged(2)
+                }
             }
         }
     }

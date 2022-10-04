@@ -26,14 +26,14 @@ class ViewPagerAdapter(
 
     var folderSongs = mutableListOf<Audio>()
     var plistSongs = mutableListOf<Audio>()
-    var folderView  = "folders"
+    var folderView = "folders"
     var plistView = "plists"
     var last_pos = 0
     val TAG = ViewPagerAdapter::class.java.simpleName
 
-    var songsAdapter = SongsAdapter(songs,this)
+    var songsAdapter = SongsAdapter(songs, this)
     val foldersAdapter = FolderAdapter(folders, this)
-    var playListAdapter = PlayListAdapter(playlists,this)
+    var playListAdapter = PlayListAdapter(playlists, this)
 
     class PagesViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
 
@@ -51,12 +51,12 @@ class ViewPagerAdapter(
         val recyclerView = holder.itemView.findViewById<RecyclerView>(R.id.rvPages)
         when (position) {
             0 -> {
-                songsAdapter = SongsAdapter(songs,this)
+                songsAdapter = SongsAdapter(songs, this)
                 recyclerView.adapter = songsAdapter
             }
             1 -> {
                 if (folderView == "folderSongs") {
-                    songsAdapter = SongsAdapter(folderSongs,this)
+                    songsAdapter = SongsAdapter(folderSongs, this)
                     recyclerView.adapter = songsAdapter
                 } else {
                     recyclerView.adapter = foldersAdapter
@@ -64,7 +64,7 @@ class ViewPagerAdapter(
             }
             2 -> {
                 if (plistView == "plistSongs") {
-                    songsAdapter = SongsAdapter(plistSongs,this)
+                    songsAdapter = SongsAdapter(plistSongs, this)
                     recyclerView.adapter = songsAdapter
                 } else {
                     recyclerView.adapter = playListAdapter
@@ -75,34 +75,39 @@ class ViewPagerAdapter(
 
     }
 
-    fun notifySongsAdapterWithPos(audio: Audio){
-        songsAdapter.songChanged(audio)
+    fun notifySongsAdapterWithPos(audio: Audio,selected:Boolean = true) {
+        CoroutineScope(Dispatchers.Main).launch {
+            songsAdapter.songChanged(audio,selected)
+        }
     }
 
-    fun changeFolderView(_folderSongs: MutableList<Audio> = mutableListOf(),folderName:String = "") {
+    fun changeFolderView(
+        _folderSongs: MutableList<Audio> = mutableListOf(),
+        folderName: String = ""
+    ) {
         folderSongs = _folderSongs
-        folderView = if (folderSongs.isEmpty()){
+        folderView = if (folderSongs.isEmpty()) {
             "folders"
-        }else{
+        } else {
             "folderSongs"
         }
         Log.e(TAG, "state changed : $folderView")
         CoroutineScope(Dispatchers.Main).launch {
             notifyItemChanged(1)
-            parent.setFolderTabView(folderView,folderName)
+            parent.setFolderTabView(folderView, folderName)
         }
     }
 
-    fun changePlistView(_plistSongs: MutableList<Audio> = mutableListOf(), plistName:String = "") {
+    fun changePlistView(_plistSongs: MutableList<Audio> = mutableListOf(), plistName: String = "") {
         plistSongs = _plistSongs
-        plistView = if (plistView.isEmpty()){
+        plistView = if (plistView.isEmpty()) {
             "plist"
-        }else{
+        } else {
             "plistSongs"
         }
         CoroutineScope(Dispatchers.Main).launch {
             notifyItemChanged(2)
-            parent.setPlistTabView(plistView,plistName)
+            parent.setPlistTabView(plistView, plistName)
         }
     }
 
@@ -111,7 +116,7 @@ class ViewPagerAdapter(
     }
 
     fun updateSongs() {
-        if (last_pos == 0 || last_pos == -1){
+        if (last_pos == 0 || last_pos == -1) {
             return
         }
         CoroutineScope(Dispatchers.Main).launch {
